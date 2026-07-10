@@ -133,3 +133,13 @@ mismatch (CDA data vs exact fit) biases size & aggregation (demonstrated).
 4. Real-data driver: load experimental T-series → `fit_temperature_series`.
 5. Validate against TEM-characterized samples + the temperature/isosbestic series.
 6. Optional: NN surrogate trained on Layer-1+2 spectra for instant inference.
+7. **No wavelength-range filtering on real data.** `dielectric.py`'s Etchegoin
+   model is only validated ~400-1000 nm (water index good to ~400 nm too);
+   real spectra fed through `io_data.load_series` are used as-is, unfiltered,
+   with uniform per-wavelength weighting in `fitting.py`/`fit_global.py`.
+   Real Cary 100 data can include deep-UV interband absorption (unmodeled
+   below ~400 nm) and a lamp-changeover artifact at exactly 350 nm — both of
+   which will bias fits if included. `load_series` takes an optional
+   wavelength_range=(min,max) filter (default 420-800 nm) that excludes these;
+   `scripts/fit_real.py` exposes it as `--range MIN MAX`. Residual caveat: the
+   fitters still weight the kept range uniformly.

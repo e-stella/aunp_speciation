@@ -30,8 +30,15 @@ def _parse_temperature(label):
     return float(m.group(1)) if m else None
 
 
-def load_series(path, delimiter=None):
-    """Load a spectra file. Returns (wavelength_nm, spectra, temps_K_or_None)."""
+def load_series(path, delimiter=None, wavelength_range=(420, 800)):
+    """Load a spectra file. Returns (wavelength_nm, spectra, temps_K_or_None).
+
+    wavelength_range=(min_nm, max_nm) restricts the returned arrays to that
+    (inclusive) window; pass None to keep the full range. The default
+    (420, 800) nm trims the deep-UV interband region the Etchegoin dielectric
+    does not model and the 350 nm lamp-changeover artifact seen on Cary
+    instruments (see "Known limitations" #7 in CLAUDE.md).
+    """
     with open(path, newline="") as f:
         sample = f.read(2048)
         f.seek(0)
@@ -43,6 +50,11 @@ def load_series(path, delimiter=None):
     arr = np.array([[float(x) for x in r] for r in rows], dtype=float)
     wl = arr[:, 0]
     Y = arr[:, 1:].T  # (n_columns, n_wl)
+    if wavelength_range is not None:
+        lo, hi = wavelength_range
+        mask = (wl >= lo) & (wl <= hi)
+        wl = wl[mask]
+        Y = Y[:, mask]
     col_labels = header[1:]
     temps_C = [_parse_temperature(lbl) for lbl in col_labels]
     if Y.shape[0] >= 2 and all(t is not None for t in temps_C):

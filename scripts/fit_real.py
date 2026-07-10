@@ -1,10 +1,12 @@
 """Fit a real UV-Vis file (or the bundled example).
 
 Usage:
-    python scripts/fit_real.py [path/to/spectra.csv]
+    python scripts/fit_real.py [path/to/spectra.csv] [--range MIN_NM MAX_NM]
 
 - Auto-detects a temperature series (>=2 T columns) -> global fit; otherwise a
   single-spectrum fit.
+- --range restricts the fitted window (default 420 800 nm); pass "--range 0 1e9"
+  to keep the full spectrum. See "Known limitations" #7 in CLAUDE.md.
 - Uses the precomputed EXACT T-matrix basis (outputs/tmatrix_basis.npz) if it
   exists, else falls back to the fast CDA optics. (Build the cache once with
   mstm-env/bin/python scripts/build_tmatrix_basis.py)
@@ -23,9 +25,24 @@ from aunp_speciation.fit_global import fit_temperature_series
 HERE = os.path.dirname(__file__)
 OUT = os.path.join(HERE, "..", "outputs")
 CACHE = os.path.join(OUT, "tmatrix_basis.npz")
-DATA = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "..", "data",
-                                                          "example_series.csv")
 SPECIES = ("monomer", "dimer", "trimer_linear")
+
+
+def parse_args(argv):
+    """Return (data_path, wavelength_range). Supports an optional
+    `--range MIN MAX` flag anywhere after the program name."""
+    args = list(argv[1:])
+    wl_range = (420.0, 800.0)
+    if "--range" in args:
+        i = args.index("--range")
+        wl_range = (float(args[i + 1]), float(args[i + 2]))
+        del args[i:i + 3]
+    data = args[0] if args else os.path.join(HERE, "..", "data",
+                                             "example_series.csv")
+    return data, wl_range
+
+
+DATA, WL_RANGE = parse_args(sys.argv)
 
 
 def choose_backend():
@@ -38,7 +55,7 @@ def choose_backend():
 
 
 def main():
-    wl, spectra, temps_K = load_series(DATA)
+    wl, spectra, temps_K = load_series(DATA, wavelength_range=WL_RANGE)
     backend = choose_backend()
     print(f"loaded {os.path.basename(DATA)}: {spectra.shape[0]} spectrum(a), "
           f"{len(wl)} wavelengths, {wl.min():.0f}-{wl.max():.0f} nm")
