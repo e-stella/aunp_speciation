@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "aunp-speciation: UV-Vis speciation and sizing of gold nanoparticles"
+abstract: >-
+  A tool that models gold-nanoparticle UV-Vis extinction spectra as a
+  temperature-dependent monomer-dimer-trimer mixture (Mie, coupled-dipole, and
+  exact multi-sphere T-matrix optics with van 't Hoff equilibria) and fits
+  single spectra or temperature series to recover size, polydispersity, and
+  aggregation state.
+type: software
+version: 0.1.0
+date-released: "2026-07-10"
+license: MIT
+repository-code: "https://github.com/e-stella/aunp-speciation"
+keywords:
+  - gold nanoparticles
+  - plasmonics
+  - UV-Vis spectroscopy
+  - nanoparticle sizing
+  - nanoparticle aggregation
+  - Mie theory
+  - T-matrix
+authors:
+  - given-names: "Eun Sohl"     
+    family-names: "Koh"
+    affiliation: "Department of Chemistry, Indiana University"
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
+  - given-names: "Bogdan"    
+    family-names: "Dragnea"
+    affiliation: "Department of Chemistry, Indiana University"
