@@ -86,6 +86,12 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
 5. Global fit currently uses CDA basis in the loop (fast). For quantitative
    results precompute a T-matrix basis on a (D, gap) grid and interpolate, so
    the exact optics enter the fit without the per-iteration treams cost.
+6. **Wavelength range**: the Etchegoin dielectric is only validated ~400–1000 nm
+   and real Cary spectra carry deep-UV interband absorption plus a 350 nm
+   lamp-changeover artifact, so `io_data.load_series` trims to
+   `wavelength_range=(420, 800)` by default (`fit_real.py`: `--range MIN MAX`).
+   Residual caveat: `fitting.py`/`fit_global.py` still weight the kept range
+   uniformly — no per-wavelength noise model.
 
 ## Conventions
 - Units: lengths in nm, cross sections in nm². Wavelengths are vacuum λ₀.
@@ -133,13 +139,3 @@ mismatch (CDA data vs exact fit) biases size & aggregation (demonstrated).
 4. Real-data driver: load experimental T-series → `fit_temperature_series`.
 5. Validate against TEM-characterized samples + the temperature/isosbestic series.
 6. Optional: NN surrogate trained on Layer-1+2 spectra for instant inference.
-7. **No wavelength-range filtering on real data.** `dielectric.py`'s Etchegoin
-   model is only validated ~400-1000 nm (water index good to ~400 nm too);
-   real spectra fed through `io_data.load_series` are used as-is, unfiltered,
-   with uniform per-wavelength weighting in `fitting.py`/`fit_global.py`.
-   Real Cary 100 data can include deep-UV interband absorption (unmodeled
-   below ~400 nm) and a lamp-changeover artifact at exactly 350 nm — both of
-   which will bias fits if included. `load_series` takes an optional
-   wavelength_range=(min,max) filter (default 420-800 nm) that excludes these;
-   `scripts/fit_real.py` exposes it as `--range MIN MAX`. Residual caveat: the
-   fitters still weight the kept range uniformly.
