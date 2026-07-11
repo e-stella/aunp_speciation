@@ -279,6 +279,17 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
       excess above (jc interband, TEM-poly tails, CTAC medium index ≠ pure
       water). The %-fractions are robust to it (profile bounds above), but do
       not read the RMS as noise-limited.
+    - **Size-mixture screen (fig15, `scripts/size_mixture_feasibility.py`,
+      2026-07-11):** per-gold cosines on the same exact basis — m29/m42 =
+      0.9976, yet NNLS retrieval of the 42 nm gold fraction in a synthetic
+      29+42 mix is UNBIASED with 2σ detection ≈ 2% of gold at ≤0.3% iid noise
+      (≈10% at 1%; structured peak-shape systematics are the practical floor —
+      the mixing experiment measures it). m42/d29 = 0.9803, and a pure
+      29-dimer fitted monomer-only leaves a 9.7%-of-peak structured residual
+      (~30× noise) before grabbing the m42 column — dimer contamination is
+      detectable, not silent. WARNING: d42 vs t29 = 0.9984 — cross-size
+      AGGREGATE species are mutually degenerate; mixing experiments must keep
+      aggregation suppressed for the two-monomer reading to stay clean.
 
 11. **[IMPLEMENTED — AND THE VERDICT IS LARGELY AGAINST THE OLD READING] Gold ε(λ,T).**
     `gold_epsilon(..., temperature_C=)` now applies a bulk thermal Drude-damping
@@ -488,6 +499,10 @@ venv for the exact T-matrix backend (treams needs numpy 1.26 / scipy 1.11).
   validation (D/poly pinned to TEM, A_surf=0.25, gap 3.5 nm): collinearity
   diagnostic + pinned exact-basis speciation fits (see #10). ~20 min first run;
   exact basis cached in experimental/ctac/.
+- `python scripts/size_mixture_feasibility.py` — fig15; 29+42 nm size-mixture
+  identifiability screen (per-gold cosine matrix + NNLS retrieval vs noise;
+  system env, reuses the ctac cache). Pre-registration for the mixing
+  experiment; results recorded in #10.
 - `python scripts/fit_real.py [file.csv] [--range MIN MAX] [--normalize
   {none,density,mult_400nm}] [--anchor NM] [--fixed-eps]` — fig 8; load a real
   UV-Vis file and fit with gold ε(T) + water n(T) per temperature (--fixed-eps
