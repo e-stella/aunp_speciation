@@ -233,10 +233,52 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
     extinction and even monomers scatter, which will make the pedestal/species
     separation (#8) harder than it is at 13 nm — design the scattering term for
     that now.
-    **Red-tail excess is reproducible in clean samples:** with D FIXED to TEM
-    ground truth, data ride above Mie across ~560–660 nm in every CTAC sample,
-    including the pristine 29/31 nm ones — independently reproducing the
-    persistent-red-tail-vs-simulation effect reported in the lab.
+    **[SUPERSEDED 2026-07-11] "Red-tail excess is reproducible in clean
+    samples" — NOT reproduced under the calibrated model.** The earlier claim
+    (data above Mie at ~560–660 nm in every CTAC sample) traced to the
+    bb-era analysis. Re-measured with jc + TEM-pinned D AND poly
+    (fig13_redtail_excess.png): the 29–42 nm samples sit 0.5–2.5% BELOW the
+    model across 560–660 nm under both peak- and LSQ-normalization, robust to
+    trimming the TEM low-side outliers (raw TEM poly 4.4–7.7% falls to
+    2.8–4.9% trimmed — the TEM sd's are outlier-inflated, part of why the
+    data look taller/narrower than the model). The 8 nm sample's +6.8% excess
+    is inside the γ_S systematic (+3.1% at A_surf=0.25, −8.5% at A_surf=1).
+    ⇒ The red-tail anomaly is NOT generic to gold colloids: it is (so far)
+    specific to the citrate/TEG C500 sample — which strengthens the
+    surface-chemistry-contrast hypothesis. The C500 far-red floor itself is
+    damping-robust: measured A(790)/A(peak) = 0.146 blank-subtracted vs
+    monomer model 0.0066 (no γ_S) / 0.0101 (A_surf=0.25) / 0.0228 (A_surf=1)
+    — a ≥6× excess under even the most conservative damping, ~14–22× at the
+    fit-preferred levels.
+    **VALIDATION RUN (2026-07-11, `scripts/fit_ctac_validation.py`, mstm-env):
+    exact-basis speciation fit on the CTAC series, D/poly PINNED to TEM,
+    A_surf=0.25, gap=3.5 nm** (CTAC bilayer is ~3.2–4 nm, so smaller gaps are
+    sterically impossible for this ligand; conveniently the T-matrix also
+    converges there at lmax=8 for D≥29 nm, whereas gap 1 nm is unconverged
+    even at lmax=10 AND unphysical for CTAC).
+    - **Collinearity diagnostic** (cosine of per-gold-atom basis vectors,
+      420–800 nm): CDA 12.9 nm/gap 1 = 0.9965 (reproduced); **EXACT 12.9/gap 1
+      = 0.9593** — exact optics DO break the CDA collinearity at near-contact.
+      BUT the gap dominates: EXACT 12.9/gap 3.5 = **0.9979** — collinear
+      again. Per sample (gap 3.5): 8 nm **0.9997** (hopeless); 29/31/38/42 nm
+      = 0.969/0.963/0.940/0.925 — identifiable, improving with size.
+    - **Fits (negative control PASSED):** 29–42 nm all return 100% monomer,
+      dimer gold <0.5% (profile bound at RMS+1%; <2.6% at RMS+5%) — with an
+      identifiable basis the pipeline does NOT hallucinate aggregates on clean
+      monomer samples. The 8 nm sample nominally returns 96/0/4 (%m/d/t) but
+      its profile bound is 26% dimer at RMS+1% — NOT identifiable; any
+      speciation percentage at ~8 nm must carry that caveat.
+    - **CONSEQUENCE FOR C500 (#8/#11): identifiability at ~13 nm is
+      GAP-CONDITIONAL.** The aggregated-gold ≈0.15–0.30 numbers rest on the
+      assumed 1 nm citrate/TEG gap (cos 0.96); if the true gap is ≳2–3 nm they
+      become unidentifiable (cos→0.998). Constraining the gap (TEM of dried
+      dimers / ligand-length argument) joins A_surf in Next-step E.
+    - Residual caveat: the pinned-TEM fits at 29–42 nm misfit the PEAK (data
+      taller & narrower than the model; RMS 0.035–0.047 in A units; pedestal
+      takes zero weight) — same shape-systematics family as the red-tail
+      excess above (jc interband, TEM-poly tails, CTAC medium index ≠ pure
+      water). The %-fractions are robust to it (profile bounds above), but do
+      not read the RMS as noise-limited.
 
 11. **[IMPLEMENTED — AND THE VERDICT IS LARGELY AGAINST THE OLD READING] Gold ε(λ,T).**
     `gold_epsilon(..., temperature_C=)` now applies a bulk thermal Drude-damping
@@ -341,6 +383,17 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
     "575 nm isosbestic" value is not recoverable — it was read off
     mult_400nm-normalized curves. The two-state argument cannot rest on a
     stationary isosbestic; the drift itself is the finding.
+    **MODEL CROSS-CHECK (demo.py fig3, regenerated with the production stack —
+    exact cached T-matrix, jc + γ_S, endothermic K(T), D=12.9):** a
+    fixed-geometry monomer⇌dimer⇌trimer series gives a STATIONARY crossing at
+    ~532 nm (spread 0.25 nm), RED of the 524 nm peak; adding full gold+water
+    ε(T) shifts it to ~539 nm but it STAYS stationary (drift <1 nm over
+    15→75 °C). Two consequences: (a) the legacy demo's blue-side crossing
+    (~524 nm, CDA/etchegoin) was an artifact of CDA under-coupling (weak shift
+    + amplitude enhancement pulls the crossing up the blue flank) — fixed;
+    (b) the measured ~24 nm drift CANNOT be produced by a fixed-geometry
+    equilibrium even with ε(T) in the model — independent support for the
+    evolving-geometry reading above.
 13. **[IMPLEMENTED] Medium n(T) + water k(λ).** `medium_index(name, temperature_C)
     -> complex`; water n from the CRC 589 nm table (1.3334@15 → 1.3229@80 °C;
     dn/dT dispersion neglected), threaded through all optics. Water k(λ)
@@ -378,7 +431,10 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
     to it) and a wavelength-STRUCTURED part (irreversible chemistry/pedestal
     residue) — the two COEXIST on C500 (flat +6.1% @15 °C shrinking to +1.9%
     @65 °C, plus ~±1–1.8 pp structure). Would have caught this in 2011.
-    (2) `normalize="density"` stays the RECOMMENDED mode for SEALED cells.
+    (2) `normalize="density"` stays the RECOMMENDED mode when concentration is
+    VERIFIED stable (weigh the cell before/after; minimise headspace). NB the
+    2011 C500 cell WAS sealed and still lost ~5.6% — a seal alone proves
+    nothing; always run the drift diagnostic on dual-branch data.
     (3) `normalize="evaporation"`: c(T_i)/c(T_ref) = [ρ(T_i)/ρ(T_ref)]·
     [1+α·E_i], E_i = cumulative Antoine-psat scan exposure (simple ramp
     reconstruction by default; optional true scan_order.csv — convention only
@@ -412,6 +468,9 @@ venv for the exact T-matrix backend (treams needs numpy 1.26 / scipy 1.11).
 
 - `python scripts/verify.py` — physics sanity checks.
 - `python scripts/demo.py` — figs 1–4 (species, broadening, isosbestic, gap).
+  Fig 3 uses the PRODUCTION stack (jc + γ_S + ε(T); exact cached optics if
+  outputs/tmatrix_basis.npz exists, else CDA fallback — the crossing then sits
+  less red). Figs 1/2/4 stay in the legacy etchegoin/CDA prototype config.
 - `python scripts/fit_demo.py` — fig 5, single-spectrum inverse fit.
 - `python scripts/fit_global_demo.py` — fig 7, global multi-temperature fit.
 - `mstm-env/bin/python scripts/validate_mstm.py` — fig 6, exact-vs-CDA (needs venv).
@@ -425,6 +484,10 @@ venv for the exact T-matrix backend (treams needs numpy 1.26 / scipy 1.11).
   and the flags — fit_real refuses mismatches).
 - `python scripts/make_example_data.py` — write data/example_series.csv (uses the
   cache if present, so the demo is optics-consistent).
+- `mstm-env/bin/python scripts/fit_ctac_validation.py` — fig12; CTAC size-series
+  validation (D/poly pinned to TEM, A_surf=0.25, gap 3.5 nm): collinearity
+  diagnostic + pinned exact-basis speciation fits (see #10). ~20 min first run;
+  exact basis cached in experimental/ctac/.
 - `python scripts/fit_real.py [file.csv] [--range MIN MAX] [--normalize
   {none,density,mult_400nm}] [--anchor NM] [--fixed-eps]` — fig 8; load a real
   UV-Vis file and fit with gold ε(T) + water n(T) per temperature (--fixed-eps

@@ -13,9 +13,11 @@ Usage:
   temperature (limitations #11/#13) unless --fixed-eps is passed.
 - --range restricts the fitted window (default 420 800 nm); pass "--range 0 1e9"
   to keep the full spectrum. See "Known limitations" #6 in CLAUDE.md.
-- --normalize density (RECOMMENDED for sealed cells) corrects concentration for
+- --normalize density (for runs with VERIFIED-stable concentration — weigh the
+  cell before/after; a seal alone is not proof) corrects concentration for
   water thermal expansion (Kell 1975) — no anchor-wavelength assumption.
-  --normalize evaporation (SALVAGE for unsealed legacy runs, limitation #14)
+  --normalize evaporation (SALVAGE for runs that lost solvent, limitation #14;
+  the sealed 2011 C500 cell still lost ~5.6%)
   additionally fits a 1-parameter evaporation model from the matched-T
   heating-vs-cooling offsets; REQUIRES --companion (the other branch) and
   --branch; use --blanks/--companion-blanks (export via
@@ -168,15 +170,39 @@ def main():
                   f"{r.gold_fractions['trimer_linear'][i]:8.3f}"
                   f"{agg[i]:7.3f}   {r.a_sca[i]:.4f}")
         print(f"  residual RMS = {r.residual_rms:.4f}")
-        fig, ax = plt.subplots(figsize=(7, 4.6))
+        # show only a few temperatures: overlaying all of them makes data and
+        # fit indistinguishable. The FIT still uses every temperature.
+        TC = temps_K - 273.15
+        want = np.linspace(TC.min(), TC.max(), 4)
+        show = sorted({int(np.argmin(np.abs(TC - t))) for t in want})
         cmap = plt.cm.coolwarm(np.linspace(0, 1, len(temps_K)))
-        for i, Tc in enumerate(temps_K - 273.15):
-            ax.plot(wl, spectra[i] / spectra.max(), ".", ms=2.5, color=cmap[i])
-            ax.plot(r.wavelength, r.models[i], "-", color=cmap[i], lw=1.5,
-                    label=f"{Tc:.0f} C")
-        ax.set_xlabel("wavelength (nm)"); ax.set_ylabel("extinction (norm.)")
-        ax.set_title("Global fit to real T-series (points=data, lines=fit)")
-        ax.legend(frameon=False, fontsize=8, ncol=2)
+        norm = spectra.max()
+        fig, (ax, axr) = plt.subplots(
+            2, 1, figsize=(7.5, 5.8), sharex=True,
+            gridspec_kw={"height_ratios": [3.2, 1]})
+        for i in show:
+            ax.plot(wl[::4], spectra[i, ::4] / norm, "o", ms=3.5,
+                    mfc="none", mec=cmap[i], mew=0.9)
+            ax.plot(r.wavelength, r.models[i], "-", color=cmap[i], lw=1.7,
+                    label=f"{TC[i]:.0f} °C")
+            resid = np.interp(r.wavelength, wl, spectra[i] / norm) - r.models[i]
+            axr.plot(r.wavelength, resid, "-", color=cmap[i], lw=0.9)
+        from matplotlib.lines import Line2D
+        proxies = [Line2D([], [], marker="o", mfc="none", mec="k", ls="",
+                          ms=4.5, label="circles = measured (every 4th pt)"),
+                   Line2D([], [], color="k", lw=1.7, label="lines = global fit")]
+        leg1 = ax.legend(handles=proxies, frameon=False, fontsize=8.5,
+                         loc="upper right")
+        ax.add_artist(leg1)
+        ax.legend(frameon=False, fontsize=8, loc="center right",
+                  title="temperature")
+        ax.set_ylabel("extinction (norm.)")
+        ax.set_title(f"Global fit to real T-series — {len(show)} of "
+                     f"{len(temps_K)} temperatures shown (fit uses all)")
+        axr.axhspan(-r.residual_rms, r.residual_rms, color="0.85", alpha=0.7)
+        axr.axhline(0, color="0.4", lw=0.7)
+        axr.set_ylabel("data − fit")
+        axr.set_xlabel("wavelength (nm)")
     else:
         print("single spectrum -> single-spectrum fit")
         tc = float(temps_K[0] - 273.15) if (temps_K is not None and EPS_T) else None

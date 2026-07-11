@@ -133,8 +133,10 @@ def check_concentration_drift(heating, cooling, blue=(400.0, 470.0),
             print("  *** WARNING: wavelength-FLAT branch offset detected => the "
                   "sample CONCENTRATION drifted during the run (evaporation or "
                   "dilution). normalize='density' CANNOT see this and will be "
-                  "biased — use normalize='evaporation' (needs both branches), "
-                  "or seal the cuvette next time. ***")
+                  "biased — use normalize='evaporation' (needs both branches). "
+                  "NB sealing alone is NOT sufficient (the sealed 2011 C500 "
+                  "cell still lost ~5.6%): minimise headspace and weigh the "
+                  "cell before/after the run. ***")
         if structured:
             print("  note: a wavelength-STRUCTURED component is also present "
                   "(irreversible chemistry / pedestal residue) — the flat and "
@@ -258,8 +260,10 @@ def load_series(path, delimiter=None, wavelength_range=(420, 800),
       polynomial, T_ref the FIRST ext_ column's temperature. No anchor
       wavelength, no assumption about any spectral point being invariant.
       Requires parseable temperatures in every column header.
-      "evaporation" — SALVAGE MODE for legacy/UNSEALED-cell runs (limitation
-      #14). c(T_i)/c(T_ref) = [rho(T_i)/rho(T_ref)] * [1 + alpha*E_i], with
+      "evaporation" — SALVAGE MODE for runs that lost solvent (limitation
+      #14; NB the sealed 2011 C500 cell still lost ~5.6% — a seal alone does
+      not guarantee anything). c(T_i)/c(T_ref) = [rho(T_i)/rho(T_ref)] *
+      [1 + alpha*E_i], with
       E_i the cumulative Antoine vapour-pressure-weighted scan exposure and
       alpha ONE parameter FITTED per dataset (never hardcoded) from the
       matched-temperature heating-vs-cooling branch offsets (model-free —
@@ -267,9 +271,10 @@ def load_series(path, delimiter=None, wavelength_range=(420, 800),
       RAW file); with one branch only it falls back to "density" with a LOUD
       warning (evaporation is uncorrectable from a single branch). Assumes
       the entire flat branch offset is concentration — irreversible
-      aggregation would be misread as evaporation. Sealing the cuvette makes
-      this whole mode unnecessary; "density" is the recommended mode for
-      sealed cells.
+      aggregation would be misread as evaporation. "density" is the right
+      mode only when the concentration is KNOWN stable — verify by weighing
+      the cell before/after the run (and minimise headspace), don't assume
+      it from a seal.
       "mult_400nm" — DEPRECATED / BIASED. Anchors every spectrum to equal
       extinction at anchor_nm. Its premise (A(400) tracks concentration only)
       is measurably violated on the C500 series: A(400) RISES +3.18% over
@@ -307,7 +312,7 @@ def load_series(path, delimiter=None, wavelength_range=(420, 800),
         print("*** WARNING: normalize='evaporation' needs BOTH branches "
               "(companion=...). Evaporation is UNCORRECTABLE from a single "
               "branch — falling back to 'density', which corrects thermal "
-              "expansion only and is BIASED if the cell was unsealed. ***")
+              "expansion only and is BIASED if the sample lost solvent. ***")
         normalize = "density"
 
     if normalize == "density":
@@ -341,10 +346,11 @@ def load_series(path, delimiter=None, wavelength_range=(420, 800),
             this_is_heating = branch == "heating"
         heat = (wl, Y, temps_C) if this_is_heating else (wl2, Y2, temps2)
         cool = (wl2, Y2, temps2) if this_is_heating else (wl, Y, temps_C)
-        print("*** normalize='evaporation' is a SALVAGE mode for unsealed-cell "
-              "legacy data: it assumes the ENTIRE flat branch offset is "
+        print("*** normalize='evaporation' is a SALVAGE mode for runs that "
+              "lost solvent: it assumes the ENTIRE flat branch offset is "
               "concentration; irreversible aggregation would be misread as "
-              "evaporation. Seal the cell and use 'density' next time. ***")
+              "evaporation. Next time minimise headspace and weigh the cell "
+              "before/after (the sealed 2011 cell still lost ~5.6%). ***")
         check_concentration_drift(heat, cool)
         cal = fit_evaporation_alpha(heat, cool, scan_order=scan_order)
         a, Eh, Ec = cal["alpha"], cal["E_heat"], cal["E_cool"]
