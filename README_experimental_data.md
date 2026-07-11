@@ -36,6 +36,18 @@ Sample: citrate/TEG-functionalized AuNP, TEM diameter **12.9 nm ± 7%**, ~45×
 diluted from the optical-force stock into the spectrophotometer's linear range.
 Characterized in `C500_Final_Report_Eun_Sohl_Koh.pdf` (Figs 16–17 = this data).
 
+**Sample history (recalled 2026-07, relevant to the scattering floor):** before
+this dilution, the stock had been CONCENTRATED to very high particle density
+(~1e14 particles/mL; mean interparticle spacing only ~200 nm ≈ 16 diameters)
+for a plasmon-induced-dipole experiment. Loose clusters formed during the
+concentrated phase and surviving the ~45× dilution unfiltered are a plausible
+origin for the far-red extinction floor (CLAUDE.md #8) — consistent with the
+floor being present already in the first 15 °C scan (pre-existing population,
+not created by heating). Consequence: the floor may reflect the sample's
+CONCENTRATION HISTORY rather than citrate chemistry per se — the CTAC
+validation samples, which show no floor, were never concentrated. Testable
+with a fresh, never-concentrated citrate control (and by the DLS ramp).
+
 ## CANONICAL INPUT — use these (raw, full range, normalization done IN CODE)
 - `aunp_heating_RAW_390-900.csv` — 18 temperatures, 15→75 °C (heating branch)
 - `aunp_cooling_RAW_390-900.csv` —  6 temperatures, 65→15 °C (cooling branch)
