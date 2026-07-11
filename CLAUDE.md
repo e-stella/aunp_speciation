@@ -290,13 +290,21 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
       detectable, not silent. WARNING: d42 vs t29 = 0.9984 — cross-size
       AGGREGATE species are mutually degenerate; mixing experiments must keep
       aggregation suppressed for the two-monomer reading to stay clean.
-      ADDENDUM (measured): shape-only BLIND analysis cannot detect the
-      mixture as such — a single Gaussian population imitates every tested
-      mix to RMS ≈ 0.01% of peak (50/50 mix ≡ D 32 nm at 22% poly). Ratio
-      retrieval therefore REQUIRES the two component shapes as priors
-      (TEM'd endmembers, as designed); in blind data the only flag for
-      hidden multimodality is an implausibly large fitted polydispersity
-      (≳15–20% where synthesis gives 5–10%).
+      ADDENDUM (measured; CORRECTED 2026-07-11): shape-only BLIND analysis
+      cannot detect the mixture as such — and the degeneracy is DEEPER than
+      the first pass suggested. A single Gaussian population imitates the
+      50/50 mix at RMS 0.01% of peak with poly free (D=32, 22% poly), and
+      STILL at RMS 0.09% with poly constrained ≤10% (D=36) — i.e. the
+      "implausibly-large-poly flag" is UNRELIABLE at this size gap. The
+      reverse also holds: a narrow 35 nm/5% sample fits as a 34:66 "mix" at
+      RMS 0.11%. All are below the measured per-point noise (0.13–0.21% of
+      peak, 2nd-difference on the CTAC scans) and far below the 1–4%
+      systematics floor. Absolute per-gold extinction rejects the BROAD
+      imitation (+15% level error) but not the narrow one (1–2.4%). ⇒ Ratio
+      retrieval REQUIRES the two-endmember prior (TEM'd stocks, as the
+      mixing experiment provides); blind bimodality detection needs TEM/DLS,
+      not UV-Vis. Retrieval is otherwise robust to polydispersity 3–20%
+      when the widths are KNOWN (common-mode broadening; 2σ ±0.01).
 
 11. **[IMPLEMENTED — AND THE VERDICT IS LARGELY AGAINST THE OLD READING] Gold ε(λ,T).**
     `gold_epsilon(..., temperature_C=)` now applies a bulk thermal Drude-damping
