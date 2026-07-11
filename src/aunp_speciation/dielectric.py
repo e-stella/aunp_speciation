@@ -118,7 +118,8 @@ def _yk_spline(film):
     return _nk_spline(f"yk{film}", t["wavelength"], t[f"n{film}"], t[f"k{film}"])
 
 
-_MODELS = ("etchegoin", "bb", "jc", "yakubovsky25", "yakubovsky53")
+_MODELS = ("etchegoin", "bb", "jc", "yakubovsky25", "yakubovsky53",
+           "reddy_p200")
 
 
 def use_gold_model(name):
@@ -185,6 +186,11 @@ def gold_epsilon(wavelength_nm, model=None, temperature_C=None):
     elif m in ("yakubovsky25", "yakubovsky53"):
         nk = _yk_spline(m[-2:])(lam)
         eps = (nk[0] + 1j * nk[1])**2
+    elif m == "reddy_p200":
+        # natively T-dependent (full DCP incl. interband) — do NOT add the
+        # Drude-only thermal retune on top
+        return gold_epsilon_reddy(lam, 23.0 if temperature_C is None
+                                  else temperature_C)
     elif m == "yakubovsky":
         use_gold_model(m)  # raises with the size-matching guidance
     else:
@@ -246,18 +252,62 @@ def _holstein_factor(T_K):
 
 _F_REF = None  # lazy _holstein_factor(T_REF)
 
+# --- gamma_bulk(T) scaling: a FACTOR-SEVERAL SYSTEMATIC, bracketed -----------
+# The three defensible scalings disagree strongly over 15-75 C (numbers are
+# dGamma/dT near room T, and the relative rise over 15->75 C w.r.t. 44 meV):
+#   'holstein'     : full Holstein integral, Th=170 K -> 1.47e-4 eV/K, +20.1%
+#                    (pure electron-phonon theory; NB the high-T limit gives
+#                    ~1.2e-4 — an earlier doc claim of "~12% agreement with
+#                    Reddy" compared THAT number, not the implemented 1.47e-4,
+#                    and was WRONG: Holstein is 36% steeper than Reddy-single)
+#   'reddy-single' : Reddy 2016 Table 6, 200 nm single-crystal film, measured
+#                    Gamma_D 0.0534 (23 C) -> 0.0725 eV (200 C)
+#                    -> 1.08e-4 eV/K, +14.7% over 15->75 C (w.r.t. 44 meV)
+#   'reddy-poly'   : Reddy 2016 Table 3, 200 nm POLYcrystalline film,
+#                    0.0471 (23 C) -> 0.0489 eV (100 C)
+#                    -> 0.23e-4 eV/K, +3.2% over 15->75 C
+# Reconciliation: a MEASURED Gamma_D includes T-independent grain-boundary/
+# defect scattering that damps the RELATIVE rise; Holstein is the pure e-ph
+# term. Citrate-grown AuNPs are polycrystalline, so 'reddy-poly' is arguably
+# the closest analogue — but the truth for a colloidal particle is unknown.
+# DO NOT leave this as a fixed assumption: bracket fits with all three
+# (use_eps_t_scaling) and report how much the conclusions move.
+_EPS_T_SCALINGS = {
+    "holstein": None,           # full integral (implemented below)
+    "reddy-single": 1.08e-4,    # linear dGamma/dT (eV/K), anchored at T_REF
+    "reddy-poly": 0.23e-4,
+}
+_EPS_T_SCALING = "holstein"
+
+
+def use_eps_t_scaling(name):
+    """Select the gamma_bulk(T) scaling: 'holstein' (default), 'reddy-single',
+    or 'reddy-poly'. NB: T-matrix caches record the eps(T) model they were
+    built with (EPS_T_MODEL); non-holstein scalings will not match a
+    holstein-built cache — use the CDA backend for bracket fits, or rebuild."""
+    global _EPS_T_SCALING
+    if name not in _EPS_T_SCALINGS:
+        raise ValueError(f"scaling must be one of {tuple(_EPS_T_SCALINGS)}")
+    _EPS_T_SCALING = name
+
+
+def current_eps_t_scaling():
+    return _EPS_T_SCALING
+
 
 def gamma_bulk_ev(temperature_C=None):
     """Bulk electron-phonon Drude damping (eV) at temperature_C.
 
     temperature_C=None means the reference (20 C) -> exactly _GAMMA_BULK_EV.
-    Holstein form, Debye Th=170 K, anchored to 44 meV at 20 C (see module
-    comment; Reddy 2016 / Olmon 2012). If the Reddy measured Drude table is
-    preferred over the theory curve, swap here — near 15-75 C they agree to
-    ~12% in slope.
+    Scaling selected by use_eps_t_scaling(); see the bracket comment above —
+    the magnitude of dGamma/dT is a factor-several systematic between pure
+    e-ph theory (Holstein) and Reddy 2016's measured films.
     """
     if temperature_C is None or temperature_C == T_REF_C:
         return _GAMMA_BULK_EV
+    slope = _EPS_T_SCALINGS[_EPS_T_SCALING]
+    if slope is not None:   # linear Reddy-measured scaling
+        return _GAMMA_BULK_EV + slope * (temperature_C - T_REF_C)
     global _F_REF
     if _F_REF is None:
         _F_REF = _holstein_factor(T_REF_C + 273.15)
@@ -289,6 +339,64 @@ def thermal_damping_correction(wavelength_nm, temperature_C):
     Drude broadening slope (~12% agreement near room T).
     """
     return _drude_damping_delta(wavelength_nm, gamma_bulk_ev(temperature_C))
+
+
+# --- full Reddy DCP eps(lambda, T) — interband T-dependence included --------
+# Reddy et al., OME 6, 2776 (2016), Table S1 (arXiv:1604.00064 SI p.33):
+# 200-nm POLYCRYSTALLINE film, first cycle. Drude + 2 critical points,
+# phases fixed at -pi/4:
+#   eps = eps_inf - wp^2/(w^2 + i*Gd*w)
+#         + sum_j C_j*E_j*( e^{-i pi/4}/(E_j - w - i g_j)
+#                          + e^{+i pi/4}/(E_j + w + i g_j) ),  w in eV.
+# Unlike the Drude-only thermal retune (thermal_damping_correction), this
+# also moves the INTERBAND parameters with T (eps_inf 2.27->2.45 and the
+# 2.62 eV CP damping g2 0.256->0.273 already over 23->100 C). Parameters are
+# interpolated linearly in T (extrapolated slightly for 15 C < 23 C).
+# NB: an evaporated-film eps — absolute peak position inherits film bias
+# (like 'bb'/'yakubovsky'); use it to quantify the T-RESPONSE, not for
+# absolute peak calibration.
+_REDDY_P200 = dict(
+    T=np.array([23.0, 100.0, 200.0, 300.0, 400.0, 500.0]),
+    eps_inf=np.array([2.27, 2.45, 2.04, 2.06, 2.03, 1.90]),
+    wp=np.array([8.856, 8.863, 9.113, 9.012, 8.978, 8.959]),
+    gd=np.array([0.0471, 0.0489, 0.0496, 0.0678, 0.0695, 0.0815]),
+    C1=np.array([2.31, 2.28, 2.64, 2.49, 2.56, 2.54]),
+    g1=np.array([1.215, 1.198, 1.464, 1.357, 1.407, 1.369]),
+    E1=np.array([3.082, 3.060, 3.270, 3.218, 3.208, 3.209]),
+    C2=np.array([0.226, 0.224, 0.395, 0.371, 0.375, 0.394]),
+    g2=np.array([0.256, 0.273, 0.359, 0.375, 0.398, 0.429]),
+    E2=np.array([2.625, 2.620, 2.631, 2.607, 2.599, 2.578]),
+)
+
+
+def _reddy_param(key, temperature_C):
+    """Linear interp in T; linear extrapolation below 23 C (first segment)."""
+    T, v = _REDDY_P200["T"], _REDDY_P200[key]
+    t = float(temperature_C)
+    if t < T[0]:
+        return float(v[0] + (v[1] - v[0]) / (T[1] - T[0]) * (t - T[0]))
+    return float(np.interp(t, T, v))
+
+
+def gold_epsilon_reddy(wavelength_nm, temperature_C=23.0, drude_only=False):
+    """Full Reddy DCP eps(lambda, T) for 200-nm polycrystalline gold.
+
+    drude_only=True freezes the interband (eps_inf, wp, both CPs) at the
+    23 C row and lets ONLY Gamma_D move with T — isolates the interband
+    contribution to the thermal response by difference.
+    """
+    lam = np.asarray(wavelength_nm, dtype=float)
+    w = 1239.84 / lam
+    tP = 23.0 if drude_only else temperature_C
+    gd = _reddy_param("gd", temperature_C)
+    eps = (_reddy_param("eps_inf", tP)
+           - _reddy_param("wp", tP) ** 2 / (w**2 + 1j * gd * w))
+    phi = -np.pi / 4
+    for j in ("1", "2"):
+        C, g, E0 = (_reddy_param(k + j, tP) for k in ("C", "g", "E"))
+        eps = eps + C * E0 * (np.exp(1j * phi) / (E0 - w - 1j * g)
+                              + np.exp(-1j * phi) / (E0 + w + 1j * g))
+    return eps
 
 
 def gold_epsilon_sized(wavelength_nm, diameter_nm, A_surf=1.0,

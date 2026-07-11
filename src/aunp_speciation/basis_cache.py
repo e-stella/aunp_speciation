@@ -72,7 +72,11 @@ def build_grid(diameters_nm, gaps_nm, wavelength_nm,
                lmax=lmax, **{f"cube__{k}": v for k, v in data.items()})
     if temps is not None:
         out["temperatures_C"] = temps
-        out["eps_t_model"] = np.array(EPS_T_MODEL)
+        # reddy_p200 carries its own native (full-DCP) T-dependence; the
+        # Drude-retune scaling string does not apply to it
+        eps_t = ("native-dcp(reddy_p200)"
+                 if current_gold_model() == "reddy_p200" else EPS_T_MODEL)
+        out["eps_t_model"] = np.array(eps_t)
     return out
 
 

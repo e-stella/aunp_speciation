@@ -1,30 +1,35 @@
 # C500 experimental UV-Vis T-series — data for `aunp_speciation` fitting
 
-> ⚠️ **STATUS (2026-07-11): ALL THREE HEADLINE VERDICTS BELOW ARE PROVISIONAL —
-> pending an evaporation-aware concentration correction (CLAUDE.md #14).**
-> Matched-temperature branch comparison shows the sample CONCENTRATED ~5.6% over
-> the run (cooling brighter than heating by +5.6% @15 °C, shrinking to +1.9%
-> @65 °C; wavelength-independent in % ⇒ concentration, and scaling with the scan
-> time gap ⇒ evaporation). Kell corrects thermal expansion only and therefore
-> OVER-BRIGHTENS high-T spectra by +2.5–4.2% — a wavelength-flat, T-growing error
-> degenerate with the fitted pedestal.
+> **STATUS (2026-07-11, second pass): the evaporation-aware correction is
+> IMPLEMENTED and the verdicts below are now MEASURED, not provisional.**
+> The run evaporated: cooling is brighter than heating at matched T (+6.1%
+> @15 °C shrinking to +1.9% @65 °C; wavelength-flat in % ⇒ concentration;
+> time-gap-scaled ⇒ evaporation). `normalize="evaporation"` corrects it with
+> ONE fitted parameter (α = 8.6e-6, scatter 6%, calibrated model-free on the
+> blue-band branch offsets; c/c0 reproduces the hand-computed table to
+> ≤0.65%). Per-temperature blanks (scripts/export_blanks.py, from final.xls)
+> are subtracted before everything — they carry a real ~0.031–0.036 far-red
+> offset.
 >
-> **1. Gold ε(λ,T) IS implemented** (bulk Holstein γ_bulk(T) + T-independent γ_S)
-> plus water n(T) — that physics stands. Under Kell normalization the
-> thermally-driven speciation signal collapsed (ΔH₂ ≈ 0) and the surviving
-> pedestal came out exactly FLAT (n≈0) growing +31% — **both PROVISIONAL**: the
-> flat growing pedestal is exactly what Kell's evaporation blindness injects,
-> and n_sca moving 0.73→0.00 with the normalization change is a red flag.
-> See CLAUDE.md #8/#11/#14.
+> **Corrected verdicts (CLAUDE.md #8/#11/#12):**
+> 1. **No robust thermally-driven speciation.** ΔH₂ = −15±16 / +2.8±2.9
+>    (heating/cooling); aggregated gold ≈ 0.15–0.21, ~T-flat, and now
+>    BRANCH-CONSISTENT (0.18 vs 0.19 @15 °C; Kell said 0.24 vs 0.10). The
+>    T-evolution of the spectra is gold+water ε(T) physics + the pedestal.
+> 2. **The pedestal is REAL; its SHAPE is not settled.** It survives the
+>    evaporation fix AND blank subtraction (A_sca ≈ 0.13–0.19 of peak). About
+>    HALF its previously-fitted growth was the Kell artifact; the surviving
+>    +9–16% growth is branch-consistent and reversible. Its exponent is
+>    ε(T)-model-dependent: n_sca = 0.00 (jc + Drude-retune) vs 0.85 (full
+>    Reddy DCP, which fits BETTER: RMS 0.0138 vs 0.0166) — treat n_sca as
+>    unsettled in [0, ~0.9]; DLS/filtration remains the physical test.
+> 3. **The isosbestic crossing EXISTS but DRIFTS** (~544→568 nm over the
+>    heating ramp, blank-subtracted; 562→577 without blank subtraction;
+>    ~546–554 and flat on cooling) — NOT a stationary two-state isosbestic;
+>    consistent with evolving cluster geometry (Cardellini, lit-map ref 11).
+>    The Kell-era "no crossing" was a normalization artifact.
 >
-> **2. `normalize="mult_400nm"` is DEPRECATED/BIASED** (premise violated; peak
-> change inflated ~8.5×). `normalize="density"` (Kell) is better-motivated but
-> **blind to evaporation** (#14). The isosbestic verdict is **PROVISIONAL**:
-> under Kell there is no crossing; under a correct multiplicative concentration
-> correction crossings DO exist and drift 562→577 nm. Its existence/location is
-> normalization-dependent — do not build the two-state argument on it yet.
->
-> **The RAW files below remain the correct canonical input either way.**
+> **The RAW files below remain the correct canonical input.**
 
 Source: `final.xls` (Cary 100 UV-Vis, "Isosbestic pt exp", Dragnea Lab, 2011).
 Sample: citrate/TEG-functionalized AuNP, TEM diameter **12.9 nm ± 7%**, ~45×

@@ -2,18 +2,33 @@
 
 Usage:
     python scripts/fit_real.py [path/to/spectra.csv] [--range MIN_NM MAX_NM]
-                               [--normalize {none,density,mult_400nm}]
+                               [--normalize {none,density,evaporation,mult_400nm}]
                                [--anchor NM] [--fixed-eps]
+                               [--companion CSV] [--branch heating|cooling]
+                               [--blanks CSV] [--companion-blanks CSV]
+                               [--scan-order CSV]
 
 - Auto-detects a temperature series (>=2 T columns) -> global fit; otherwise a
   single-spectrum fit. The global fit uses gold eps(T) + water n(T) per
   temperature (limitations #11/#13) unless --fixed-eps is passed.
 - --range restricts the fitted window (default 420 800 nm); pass "--range 0 1e9"
   to keep the full spectrum. See "Known limitations" #6 in CLAUDE.md.
-- --normalize density (RECOMMENDED for T-series) corrects concentration for
+- --normalize density (RECOMMENDED for sealed cells) corrects concentration for
   water thermal expansion (Kell 1975) — no anchor-wavelength assumption.
+  --normalize evaporation (SALVAGE for unsealed legacy runs, limitation #14)
+  additionally fits a 1-parameter evaporation model from the matched-T
+  heating-vs-cooling offsets; REQUIRES --companion (the other branch) and
+  --branch; use --blanks/--companion-blanks (export via
+  scripts/export_blanks.py) and optionally --scan-order for true chronology.
   mult_400nm is DEPRECATED/BIASED (limitation #12; inflates the apparent peak
   change ~8.5x); kept only to reproduce old results.
+  C500 example:
+    python scripts/fit_real.py experimental/ESK_2011/aunp_heating_RAW_390-900.csv \
+      --normalize evaporation --branch heating \
+      --companion experimental/ESK_2011/aunp_cooling_RAW_390-900.csv \
+      --blanks experimental/ESK_2011/blanks_heating_390-900.csv \
+      --companion-blanks experimental/ESK_2011/blanks_cooling_390-900.csv \
+      --scan-order experimental/ESK_2011/scan_order.csv
 - Uses the precomputed EXACT T-matrix basis (outputs/tmatrix_basis.npz) if it
   exists, else falls back to the fast CDA optics. (Build the cache once with
   mstm-env/bin/python scripts/build_tmatrix_basis.py — it now carries the
@@ -60,9 +75,9 @@ def parse_args(argv):
     if "--normalize" in args:
         i = args.index("--normalize")
         mode = args[i + 1]
-        if mode not in ("none", "density", "mult_400nm"):
-            sys.exit("--normalize must be 'none', 'density' or 'mult_400nm', "
-                     f"got {mode!r}")
+        if mode not in ("none", "density", "evaporation", "mult_400nm"):
+            sys.exit("--normalize must be 'none', 'density', 'evaporation' or "
+                     f"'mult_400nm', got {mode!r}")
         normalize = None if mode == "none" else mode
         del args[i:i + 2]
     if "--anchor" in args:
@@ -72,12 +87,20 @@ def parse_args(argv):
     if "--fixed-eps" in args:
         eps_T = False
         args.remove("--fixed-eps")
+    extras = {}
+    for flag, key in (("--companion", "companion"), ("--blanks", "blanks"),
+                      ("--companion-blanks", "companion_blanks"),
+                      ("--scan-order", "scan_order"), ("--branch", "branch")):
+        if flag in args:
+            i = args.index(flag)
+            extras[key] = args[i + 1]
+            del args[i:i + 2]
     data = args[0] if args else os.path.join(HERE, "..", "data",
                                              "example_series.csv")
-    return data, wl_range, normalize, anchor, eps_T
+    return data, wl_range, normalize, anchor, eps_T, extras
 
 
-DATA, WL_RANGE, NORMALIZE, ANCHOR, EPS_T = parse_args(sys.argv)
+DATA, WL_RANGE, NORMALIZE, ANCHOR, EPS_T, EXTRAS = parse_args(sys.argv)
 
 
 def choose_backend():
@@ -110,7 +133,8 @@ def choose_backend():
 
 def main():
     wl, spectra, temps_K = load_series(DATA, wavelength_range=WL_RANGE,
-                                       normalize=NORMALIZE, anchor_nm=ANCHOR)
+                                       normalize=NORMALIZE, anchor_nm=ANCHOR,
+                                       **EXTRAS)
     if NORMALIZE == "mult_400nm":
         print(f"applied {NORMALIZE} normalization (anchor {ANCHOR:g} nm) "
               "-- DEPRECATED/BIASED, see limitation #12; prefer 'density'")

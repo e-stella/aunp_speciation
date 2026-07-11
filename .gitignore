@@ -51,3 +51,5 @@ experimental/
 #   data/example_series.csv               -> demo input for scripts/fit_real.py
 # These are safe above: the .npz rule is path-scoped to outputs/, and the data
 # rule only matches spreadsheets, not .npz/.csv.
+# --- Claude Code local settings ---
+.claude/settings.local.json

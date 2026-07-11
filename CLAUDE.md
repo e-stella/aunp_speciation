@@ -184,23 +184,28 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
         120–145 nm (too large for a 13 nm sphere), and heating to 40–60 °C *reduces*
         their number. The *laser-driven* plasmonic-nanobubble literature is a different
         regime and must not be conflated with mild bulk heating.
-   **(v) FIFTH EXCLUSION MEASURED — ε(T) (see #11) — BUT THE RESIDUAL-PEDESTAL
-   CHARACTERIZATION IS ⚠️ PROVISIONAL (see #14: evaporation).** Under ε(T) +
-   γ_S basis + Kell density norm: A_sca drops ~0.22 → 0.13–0.17 of series max
-   (≈40% of the old pedestal was gold-physics + basis-width artifact — this
-   part stands), and the surviving exponent collapses n_sca = 0.73 →
-   0.00±0.06, a flat floor growing +31% over 15→75 °C. **CAUTION: a
-   wavelength-flat, T-growing brightness term is exactly the signature of the
-   Kell normalization's evaporation blindness (#14) — Kell over-brightens
-   high-T spectra by ~+2.5%(45 °C) to ~+4.2%(75 °C). The n_sca=0.00 landing
-   exactly on the bound, and its move 0.73→0.00 when the normalization
-   changed, are red flags that the pedestal term is absorbing a normalization
-   error. Do NOT treat the flat pedestal or its +31% growth as physical until
-   an evaporation-aware concentration term is in.** Floc-test result (stands
-   as a shape statement): 0.7–1 µm Maxwell-Garnett–Mie spheres reproduce a
-   flat pedestal unimposed (equiv n = 0.00/−0.27, shape-RMS 0.088–0.12);
-   ≤200 nm flocs give n ≥ +1.3. Next discriminator: evaporation-aware
-   normalization first, then DLS/filtration if a pedestal still survives.
+   **(v) FIFTH EXCLUSION MEASURED — ε(T) (see #11) — AND THE PEDESTAL
+   RE-MEASURED UNDER normalize="evaporation" + BLANKS (#14 fixed): the flat
+   pedestal is REAL, and about half its T-growth was the Kell artifact.**
+   Corrected numbers (exact γ_S basis, evaporation norm, blank-subtracted —
+   i.e. with the static instrumental floor REMOVED from the data): the
+   pedestal EXISTS (A_sca ≈ 0.13–0.19 of series max) and its T-growth is
+   +9–16% across branches and ε(T) treatments — vs +31% under Kell:
+   **roughly half the previously-fitted growth was evaporation-normalization
+   error; the rest is a real, branch-consistent, reversible growth.** The
+   concentration-drift diagnostic independently confirms a structured
+   (non-concentration) branch component of ~1–1.8 pp in the red — the
+   pedestal's own reversibility residue. **Its SHAPE, however, is
+   ε(T)-model-dependent (see #11): n_sca = 0.00 under jc+Drude-retune vs
+   0.85 under the full Reddy DCP — and RMS prefers the DCP (0.0138 vs
+   0.0166). Treat the pedestal exponent as UNSETTLED in [0, ~0.9]; do not
+   base the floc-vs-straylight call on it.** Floc-test (shape statement):
+   0.7–1 µm Maxwell-Garnett–Mie spheres reproduce flat-to-weakly-decaying
+   pedestals unimposed (equiv n = 0.00/−0.27 at fill 0.35; ~+1.3 at 200 nm);
+   n≈0.85 sits between the large-floc and small-floc regimes (~300–500 nm
+   effective sizes). Remaining discriminator (lab): DLS across the ramp /
+   filtration — fitting cannot settle it; the reversible T-growth + flat
+   blanks argue physical.
 9. **[FIXED] Monomer peak ~4 nm red of experiment.** Root cause was the gold
    dielectric DATASET, not the medium: tabulated Johnson & Christy (model
    `'jc'`, embedded in `dielectric.py`, cubic-spline interpolated — linear
@@ -237,10 +242,42 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
     `gold_epsilon(..., temperature_C=)` now applies a bulk thermal Drude-damping
     retune on top of any base dataset: γ_bulk(T) from the **Holstein electron–phonon
     form (Θ_D = 170 K), anchored at Olmon's 44 meV @ 20 °C** — implemented from
-    theory, stated explicitly (the Reddy 2016 measured single-crystal slope
-    ~1.1e-4 eV/K agrees to ~12%; their Drude+2CP tables were obtained from the
-    open-access full text, and the author list is verified: Reddy, Guler,
-    Kildishev, Boltasseva, Shalaev, *OME* 6, 2776). γ_S stays T-independent per
+    theory, stated explicitly. **⚠️ CORRECTION (2026-07-11): the claimed "~12%
+    agreement" with Reddy is WRONG — recheck.** Reddy 2016 (author list verified:
+    Reddy, Guler, Kildishev, Boltasseva, Shalaev, *OME* 6, 2776; Drude+2CP tables
+    from the open-access full text) MEASURED Γ_D:
+      200 nm SINGLE-crystal (Table 6): 0.0534 eV (23 °C) → 0.0725 (200 °C)
+        ⇒ dΓ/dT = **1.08e-4 eV/K**  (≈ +12.3% over our 15→75 °C ramp)
+      200 nm POLY-crystalline (Table 3): 0.0471 eV (23 °C) → 0.0489 (100 °C)
+        ⇒ dΓ/dT = **0.023e-4 eV/K** (≈ +3.0% over our ramp)
+    Holstein anchored at Olmon 44 meV @20 °C rises 20.1% over 60 K
+        ⇒ dΓ/dT ≈ **1.47e-4 eV/K** — i.e. **36% steeper than Reddy single-crystal
+    and ~6× steeper than Reddy poly**, not 12%.
+    Reconciliation: *measured* Γ_D includes T-INDEPENDENT grain-boundary/defect
+    scattering, which damps the RELATIVE rise; Holstein is the pure γ_ep term.
+    **Citrate-grown AuNPs are POLYcrystalline**, so Table 3 is arguably the better
+    analogue. **BRACKETED (2026-07-11): the Drude-slope systematic turns out NOT
+    to matter, but the INTERBAND treatment does.** Fits with γ_ep(T) scaled to
+    Holstein / Reddy-single / Reddy-poly (`use_eps_t_scaling`; CDA+γ_S basis,
+    evaporation norm, heating) give near-IDENTICAL conclusions (D 8.16–8.24,
+    ΔH₂ −10..−13, n_sca 0.00, A_sca +19%, RMS 0.0179 for all three — γ_S
+    dominates γ_total, so even the 6× slope spread moves the basis by too
+    little to matter). BUT the FULL Reddy DCP ε(λ,T) (`'reddy_p200'`, Table S1
+    interpolated in T — interband parameters move too: ε∞ 2.27→2.45, γ₂
+    0.256→0.273 already by 100 °C) is a genuine outlier: peak response −2.56%
+    vs Drude-only −0.33% (the interband DOMINATES), its 12.9 nm peak lands at
+    522.8 nm (same as jc — usable), and in the CDA fit it returns n_sca 0.70,
+    halves the aggregated fraction and improves RMS (0.0142). **EXACT-basis
+    refits under 'reddy_p200' (cache outputs/tmatrix_basis_reddy.npz,
+    evaporation norm + blanks) confirm the interband sensitivity: heating
+    D=10.66, ΔH₂=+0.5±0.9, n_sca=0.86±0.02, agg 0.289→0.295, RMS 0.0138;
+    cooling n_sca=0.84, RMS 0.0137 (ΔH₂ rails/unidentified on 6 points).
+    RMS prefers the full DCP on both branches (0.0138 vs 0.0166, −17%).**
+    ⇒ ROBUST across ε(T) treatments: no thermal speciation signal; pedestal
+    exists with reversible ~+10–16% growth; D rails low. ε(T)-MODEL-DEPENDENT
+    (the dominant remaining systematic): the pedestal SHAPE (n_sca 0.00 under
+    jc+Drude-retune vs 0.85 under full DCP) and the aggregated-fraction LEVEL
+    (0.15–0.30). γ_S stays T-independent per
     Chetoui and composes with γ_bulk(T) in a SINGLE Drude retune
     (`gold_epsilon_sized(..., temperature_C=)`) — the deltas are not additive.
     Threaded through mie/clusters/clusters_tmatrix/spectra/fitters; the T-matrix
@@ -257,26 +294,26 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
     (`size_correction=True`, now wired through the whole basis incl. the
     polydispersity integral — closes #2's open item) or the fit over-attributes
     T-changes to gold ~3×. Water n(T) adds peak −2.85%/blue −0.4 nm by itself.
-    **REFIT VERDICT — ⚠️ PROVISIONAL, pending evaporation-aware concentration
-    correction (#14):** with ε(T)+n(T) in the model and the Kell density
-    normalization, ΔH₂ collapses to ≈0 (+0.9±1.2 heating, +4.1 cooling), the
-    aggregated fraction is ~T-flat (0.24 heating / 0.10 cooling), and the
-    thermally-driven speciation signal essentially vanishes — BUT the Kell
-    normalization is blind to the measured ~5.6% evaporation over the run
-    (#14), which injects a spurious wavelength-flat, T-growing brightness
-    error of exactly the kind the pedestal term absorbs. The claim "the
-    thermally-driven speciation does not survive" is therefore NOT settled;
-    re-decide after an evaporation-aware (time-monotonic) concentration term.
-    What stands regardless: the ε(T)/γ_S/n(T) physics, its measured basis
-    response, and the ~3× γ_S-dilution requirement. RMS improves
-    0.0225→0.0166 (fit quality, not verdict). **Honest caveat: the
-    ε(T)-ON and ε(T)-OFF fits reach the SAME RMS (0.0166 vs 0.0164)** — the
-    data cannot statistically distinguish "gold heats" from "speciation
-    shifts"; ε(T) belongs in the model because it is mandatory physics, not
-    because the fit prefers it. Also: with γ_S(A_surf=1) the fitted D falls to
-    10.5–10.8 (below TEM 12.9 and the cache grid) — a real A_surf/D/poly
-    degeneracy; pin size via absolute extinction (#10) and consider
-    calibrating A_surf.
+    **REFIT VERDICT — now under normalize="evaporation" + blanks (#14 fixed;
+    the Kell-era numbers are superseded):** the speciation conclusion SURVIVES
+    the corrected normalization. With ε(T)+n(T)+γ_S and the evaporation-aware
+    concentration correction: ΔH₂ = −15.2±16.3 (heating; consistent with 0) /
+    +2.8±2.9 (cooling); aggregated gold ≈ 0.15–0.21, nearly T-flat (heating
+    0.181→0.150, cooling 0.186→0.208 — opposite weak trends, no robust
+    thermal direction); **branch consistency improves dramatically vs Kell
+    (0.18 vs 0.19 at 15 °C; Kell said 0.24 vs 0.10)** — a strong sign the
+    normalization is now right. **There is NO robust thermally-driven
+    monomer⇌dimer⇌trimer signal in the C500 series.** What the temperature
+    does move: gold+water ε(T) physics (the peak region) and the pedestal's
+    T-growth (#8). D falls to 10.3–10.6 with γ_S(A_surf=1) — the A_surf/D/poly
+    degeneracy stands (pin size via absolute extinction, #10; calibrate
+    A_surf). RMS 0.0166/0.0172 — identical to Kell: fit quality CANNOT choose
+    the normalization; the branch-offset physics does. **Honest caveats kept:
+    (a) ε(T)-ON and ε(T)-OFF fits tie on RMS (0.0166 vs 0.0164) — the data
+    cannot statistically distinguish "gold heats" from "particles aggregate";
+    ε(T) is in the model because bulk gold measurably does this, an a-priori
+    argument. (b) The γ(T) magnitude itself is a factor-6 systematic
+    (Holstein vs Reddy-poly, above) — bracketed below.**
 12. **[IMPLEMENTED] Normalization re-decided: `normalize="density"` (Kell 1975).**
     `load_series` now supports a pure dilution correction
     A·ρ(T_ref)/ρ(T) (Kell polynomial, verified ρ(15)=999.10, ρ(75)=974.85 —
@@ -286,16 +323,24 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
     BIASED** (premise measurably violated: A(400) rises +3.18% while Kell
     predicts −2.43%; flat rescale inflates the apparent peak change ~8.5×);
     kept only for reproducing old results. `fit_real.py --normalize density`.
-    **ISOSBESTIC RE-TEST — ⚠️ PROVISIONAL, pending evaporation-aware correction
-    (#14).** Under the Kell density normalization the speciation residual has
-    no common zero-crossing (small-ΔT curves show dozens of noise-level
-    crossings; ΔT≥20 °C curves NONE in 500–700 nm). BUT this was tested ONLY
-    under Kell, which is blind to the measured ~5.6% evaporation; under a
-    correct multiplicative concentration correction, crossings DO exist and
-    drift 562 → 577 nm. So "the 575 nm isosbestic does not exist" is NOT
-    established either way — what IS established is that its location/existence
-    is normalization-dependent, so it cannot carry the two-state argument
-    until the concentration history is pinned down.
+    **ISOSBESTIC — RESOLVED under normalize="evaporation" (+blanks): a
+    crossing EXISTS but it DRIFTS, so it is NOT a two-state isosbestic.**
+    Measured (data-level, ΔT-vs-15 °C curves, blank-subtracted): heating
+    crossing walks ~544 nm (30–50 °C) → 550.5 (55) → 556 (65) → **568 nm
+    (75 °C)**; cooling sits ~546–554 nm, essentially flat. (Without blank
+    subtraction the same drift appears ~10 nm redder — 562→577 nm — matching
+    the hand-analysis; the blank offset shifts the crossing, another reason
+    blanks matter.) The speciation residual (pedestal removed) also has
+    bipolar structure with drifting crossings (heating ~618→634 nm). VERDICTS:
+    (a) the earlier Kell-based "no crossing anywhere" was a normalization
+    artifact — under Kell the difference curves are positive everywhere and no
+    crossing is possible; (b) a TRUE isosbestic is stationary — a ~24 nm
+    drifting crossing instead indicates an EVOLVING cluster geometry
+    (cf. Cardellini 2025, ref 11: λ_iso tracks interparticle spacing), or a
+    residual mixture of >2 effective species; (c) the historical single
+    "575 nm isosbestic" value is not recoverable — it was read off
+    mult_400nm-normalized curves. The two-state argument cannot rest on a
+    stationary isosbestic; the drift itself is the finding.
 13. **[IMPLEMENTED] Medium n(T) + water k(λ).** `medium_index(name, temperature_C)
     -> complex`; water n from the CRC 589 nm table (1.3334@15 → 1.3229@80 °C;
     dn/dT dispersion neglected), threaded through all optics. Water k(λ)
@@ -324,10 +369,34 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
     the fitted "flat pedestal (n_sca=0.00) growing +31%" looks like — and
     n_sca moving 0.73 (anchor norm) → exactly 0.00 (Kell) when only the
     normalization changed is itself a red flag that the pedestal term absorbs
-    normalization error. FIX (not yet implemented): an evaporation-aware
-    multiplicative concentration model, e.g. c(t) monotonic in SCAN TIME/ORDER
-    (identifiable from the matched-T branch offsets), composed with Kell;
-    then re-run the #8/#11/#12 verdicts.
+    normalization error.
+    **FIX IMPLEMENTED — `normalize="evaporation"` (SALVAGE mode) + the
+    reusable diagnostic.** Three pieces, in order of importance:
+    (1) `io_data.check_concentration_drift(heating, cooling)` — run on EVERY
+    dual-branch dataset; decomposes the matched-T branch ratio into a
+    wavelength-FLAT part (concentration drift; WARNS that "density" is blind
+    to it) and a wavelength-STRUCTURED part (irreversible chemistry/pedestal
+    residue) — the two COEXIST on C500 (flat +6.1% @15 °C shrinking to +1.9%
+    @65 °C, plus ~±1–1.8 pp structure). Would have caught this in 2011.
+    (2) `normalize="density"` stays the RECOMMENDED mode for SEALED cells.
+    (3) `normalize="evaporation"`: c(T_i)/c(T_ref) = [ρ(T_i)/ρ(T_ref)]·
+    [1+α·E_i], E_i = cumulative Antoine-psat scan exposure (simple ramp
+    reconstruction by default; optional true scan_order.csv — convention only
+    rescales α, c/c0 invariant to <0.3%); α is ONE parameter FITTED model-free
+    from the blue-band (400–470 nm, Haiss-450-centred) matched-T offsets —
+    never hardcoded; needs BOTH branches (`companion=`, `branch=`), else falls
+    back to density with a LOUD warning. Calibrated on C500: α = 8.6e-6
+    (blank-subtracted; raw 8.4e-6 vs hand-analysis 8.0e-6), scatter 6%,
+    residuals ±0.35%; per-region robustness confirms the blue is purest
+    (blue 8.6 / peak 7.4 / red 7.8e-6 with 31% scatter — the blue/red
+    divergence is the pedestal's leakage measure). c/c0 reproduces the
+    hand-computed table to ≤0.65% (heating 75 °C: 1.023 vs 1.015; cooling
+    15 °C: 1.058 vs 1.054) — decisively away from Kell's 0.976: the
+    degeneracy IS broken. BLANKS: `scripts/export_blanks.py` pulls the
+    per-temperature water blanks from final.xls (non-zero: 0.031/0.036 at
+    700/790 nm; T-drift only −0.003) into companion CSVs;
+    `load_series(blanks=, companion_blanks=)` subtracts them BEFORE
+    normalization. Re-run verdicts: see #8/#11/#12.
 
 ## Conventions
 - Units: lengths in nm, cross sections in nm². Wavelengths are vacuum λ₀.
@@ -388,19 +457,18 @@ Two gotchas learned the hard way:
 
 ## Next steps (suggested order)
 
-**A–D + F: code DONE; the scientific verdicts are ⚠️ PROVISIONAL pending #14
-(evaporation).** Under Kell the fits said: thermally-driven speciation gone
-(ΔH₂≈0), pedestal flat (n=0) growing +31%, no isosbestic — but Kell is blind
-to the measured ~5.6% evaporation, whose signature (wavelength-flat,
-T-monotonic brightness) is degenerate with all three claims. What stands
-regardless: the ε(T)/γ_S/n(T) physics and infrastructure, the measured basis
-T-response, the γ_S-dilution requirement, and the floc shape result.
-
-**A0. [NEW — DO FIRST] Evaporation-aware concentration correction (#14):**
-   model c(t) as monotonic in scan time/order, identified from the matched-T
-   heating-vs-cooling offsets (+5.6% @15 °C → +1.9% @65 °C), composed with
-   Kell; then RE-RUN the #8/#11/#12 verdicts (speciation survival, isosbestic
-   562→577 nm drift, pedestal shape/growth).
+**A0–D + F: DONE, verdicts now MEASURED under normalize="evaporation" +
+blanks** (see #8/#11/#12/#14). Where the science stands — robust across ε(T)
+treatments: no thermally-driven monomer⇌dimer⇌trimer signal (ΔH₂≈0 or
+unidentified; agg ~T-flat); the pedestal is REAL with half its former
+T-growth an artifact (+9–16% survives, reversible); the isosbestic crossing
+exists but DRIFTS 544→568 nm (not two-state; drift = evolving geometry,
+cf. Cardellini ref 11). Remaining model systematics, in order: (1) the
+INTERBAND ε(T) treatment — Drude-retune vs full Reddy DCP changes the
+pedestal exponent (0.00 vs 0.85) and the agg level (0.15–0.30), and RMS
+prefers the DCP (γ-slope choice within the Drude retune is immaterial —
+bracketed, #11); (2) the A_surf–D–poly degeneracy (D rails to ~10 vs TEM
+12.9). Decide the interband treatment (or report both), then E/G below.
 
 **E. Break the A_surf–D–poly degeneracy (#2, #10, #11):** pin size with ABSOLUTE
    extinction + Haiss A_spr/A_450 (not the normalized shape), and calibrate

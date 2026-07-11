@@ -52,19 +52,25 @@ correction exists as `gold_epsilon_sized` / `A_surf`.
 **ε(λ, T) IS IMPLEMENTED.** `gold_epsilon(..., temperature_C=)` applies a bulk
 thermal Drude-damping retune on top of any base dataset: γ_bulk(T) from the
 Holstein electron–phonon form (Debye Θ_D = 170 K), anchored at Olmon's 44 meV
-@ 20 °C — implemented from theory (stated explicitly in the docstring), and
-validated against Reddy 2016's measured single-crystal Drude slope (~12%
-agreement near room T). γ_bulk rises 20% over 15→75 °C. γ_S stays
-T-independent (Chetoui) and composes with γ_bulk(T) in a SINGLE retune
-(`gold_epsilon_sized(λ, D, A_surf, temperature_C)`) — the two deltas are not
-additive. Temperature threads through mie/clusters/clusters_tmatrix/spectra
-and the fitters; the T-matrix cache carries a temperature axis and records
-`eps_t_model`. Measured impact at D=12.9 (15→75 °C): with γ_S in the basis,
-peak −1.3%, @700 +3.7% — about a fifth to half of the observed changes; without
-γ_S the basis over-responds ~3× (γ_S dilutes the thermal term), which is why
-`size_correction=True` is REQUIRED for quantitative ε(T) fits. Verdict on the
-C500 series: with ε(T)+n(T) in the model the thermally-driven speciation
-signal collapses (ΔH₂≈0) — see CLAUDE.md #11.
+@ 20 °C. **The γ(T) MAGNITUDE is a bracketed factor-6 systematic**
+(`use_eps_t_scaling`): Holstein gives 1.45e-4 eV/K — 34% steeper than Reddy
+2016's measured single-crystal slope (1.08e-4) and 6.3× their polycrystalline
+slope (0.23e-4; citrate AuNPs are polycrystalline). Measured Γ_D includes
+T-independent defect scattering that damps the relative rise; do not treat
+any single scaling as truth. γ_bulk rises 20% over 15→75 °C (Holstein).
+γ_S stays T-independent (Chetoui) and composes with γ_bulk(T) in a SINGLE
+retune (`gold_epsilon_sized(λ, D, A_surf, temperature_C)`) — the two deltas
+are not additive. Temperature threads through mie/clusters/clusters_tmatrix/
+spectra and the fitters; the T-matrix cache carries a temperature axis and
+records `eps_t_model`. Measured impact at D=12.9 (15→75 °C): with γ_S in the
+basis, peak −1.3%, @700 +3.7%; without γ_S the basis over-responds ~3×, which
+is why `size_correction=True` is REQUIRED for quantitative ε(T) fits.
+Additionally, `use_gold_model('reddy_p200')` provides the FULL Reddy DCP
+ε(λ,T) (Table S1 interpolated in T): its INTERBAND movement dominates the
+peak response (full DCP −2.56% vs Drude-only −0.33%), and its 12.9 nm peak
+lands at 522.8 nm — same as J&C, no film blue-bias. Verdict on the C500
+series (under the evaporation-aware normalization + blanks): no robust
+thermally-driven speciation signal (ΔH₂≈0) — see CLAUDE.md #11.
 
 **Key functions.** `gold_epsilon(λ, model=, temperature_C=)`,
 `size_damping_correction` and `gold_epsilon_sized(λ, D, A_surf, temperature_C)`,
@@ -304,10 +310,29 @@ match any used to *simulate* test data, or size and aggregation come out biased.
 **Idea.** Load experimental UV-Vis from CSV/TSV. It handles a single spectrum
 (wavelength, extinction) or a wide **temperature series** (wavelength column +
 one extinction column per temperature, with the temperature parsed from the
-header, e.g. `ext_5C`). Baseline/units are left to you; the fitters work on
-normalised shapes.
+header, e.g. `ext_5C`). Preprocessing (all opt-in, applied at load time in a
+FIXED order: blank subtraction → normalization → wavelength clip):
+- **blanks**: subtract per-temperature water blanks (export with
+  `scripts/export_blanks.py`; the 2011 blanks carry a real ~0.03 far-red
+  offset the instrument did not remove).
+- **normalize="density"** — Kell 1975 dilution correction; the RECOMMENDED
+  mode for SEALED cells (no free parameters, works on one branch).
+- **normalize="evaporation"** — SALVAGE mode for unsealed legacy runs
+  (CLAUDE.md #14): 1-parameter Antoine-exposure model, α fitted model-free
+  from matched-temperature heating-vs-cooling offsets (blue band, Haiss-450
+  region). Requires both branches; falls back to density with a loud warning.
+- **normalize="mult_400nm"** — deprecated/biased (CLAUDE.md #12).
 
-**Key functions.** `load_series(path)` → (wavelength, spectra, temps_K or None),
+**The reusable diagnostic**: `check_concentration_drift(heating, cooling)`
+decomposes the matched-T branch ratio into a wavelength-FLAT part
+(concentration drift — evaporation/dilution; "density" is blind to it) and a
+wavelength-STRUCTURED part (irreversible chemistry). Run it on EVERY dataset
+that has both branches — it would have caught the C500 evaporation in 2011.
+
+**Key functions.** `load_series(path, normalize=, blanks=, companion=,
+branch=, scan_order=)` → (wavelength, spectra, temps_K or None),
+`check_concentration_drift(...)`, `fit_evaporation_alpha(...)`,
+`water_density(T)` (Kell), `antoine_psat(T)`, `subtract_blanks(...)`,
 `save_series(...)` (used to write the bundled example).
 
 ---
