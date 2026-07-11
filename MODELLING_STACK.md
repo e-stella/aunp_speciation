@@ -81,7 +81,12 @@ to gold or to aggregation. **Open issue: the code currently ships A = 1.0. This 
 
 ## Layer 3 — Temperature dependence of gold, ε_Au(λ, T)
 
-**Chosen: Reddy et al. (2016) Drude + two-critical-point (DCP) model, interpolated in T.**
+**Chosen: a bracketing pair, with fitted quantities reported as ranges — the production
+default is a bulk thermal Drude retune (Holstein form, Olmon-anchored) on the J&C
+baseline; the full Reddy et al. (2016) Drude + two-critical-point (DCP) model,
+interpolated in T, is the bracketing variant.** The Reddy DCP fits better (RMS −17%)
+but is thin-film-derived, and fit quality is deliberately not used as the selector
+(see Layer 1's Yakubovsky case). The DCP defines the ε(T) *magnitude* argument below.
 
 Gold's permittivity is *not* temperature-independent: heating raises the electron–phonon scattering
 rate, increasing ε₂, which **broadens the plasmon, lowers its peak, and red-shifts it — reversibly,

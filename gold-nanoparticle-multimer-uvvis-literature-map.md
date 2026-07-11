@@ -23,9 +23,9 @@ A single 12 nm Au sphere has a narrow, symmetric dipolar LSPR (~520 nm) with neg
 
 4. **"Manipulating the confinement of electromagnetic field in size-specific gold nanoparticle dimers and trimers," *RSC Adv.* 2019.** — Systematic dimer vs trimer field/spectral behavior; useful for building distinct trimer basis spectra (linear vs bent vs triangular). https://pubs.rsc.org/en/content/articlehtml/2019/ra/c9ra07346a
 
-5. **"Plasmon Coupling in Nanorod Assemblies: Optical Absorption, DDA Simulation, and Exciton-Coupling Model," *J. Phys. Chem. B* 2006.** — The plasmon-hybridization / exciton-coupling picture that lets you *predict* coupled-mode positions analytically instead of running full DDA every time. https://pubs.acs.org/doi/10.1021/jp063879z
+5. **"Plasmon Coupling in Nanorod Assemblies: Optical Absorption, DDA Simulation, and Exciton-Coupling Model," *J. Phys. Chem. B* 2006.** — The plasmon-hybridization / exciton-coupling picture that allows *predicting* coupled-mode positions analytically instead of running full DDA every time. https://pubs.acs.org/doi/10.1021/jp063879z
 
-6. **"Size Dependence of the Plasmon Ruler Equation for Two-Dimensional Metal Nanosphere Arrays," *J. Phys. Chem. C* 2011.** — How the ruler constant drifts with particle size / cluster order; needed to keep the analytic model honest at 12 nm. https://pubs.acs.org/doi/10.1021/jp2055415
+6. **"Size Dependence of the Plasmon Ruler Equation for Two-Dimensional Metal Nanosphere Arrays," *J. Phys. Chem. C* 2011.** — How the ruler constant drifts with particle size / cluster order; needed to constrain the analytic model at 12 nm. https://pubs.acs.org/doi/10.1021/jp2055415
 
 ---
 
@@ -247,7 +247,7 @@ T-independent per Chetoui; see CLAUDE.md #11). Measured at D = 12.9 nm, 15→75 
 | @700 nm | +3.7% | +10.5% | −1.1% | +15.6% |
 | @790 nm | +3.8% | +10.9% | −1.0% | +19.1% |
 
-The napkin's "~40% of everything" was directionally right; the exact share hinges on
+The back-of-envelope "~40% of everything" estimate was directionally right; the exact share hinges on
 the γ_S dilution it identified (γ_bulk rises 20% over the ramp by Holstein — more than
 the ~12.6% first assumed). **Gold ε(T) + water n(T) together cover the entire observed
 peak drop** before any speciation change.
@@ -260,20 +260,25 @@ becomes exactly FLAT (n_sca 0.73→0.00) at 0.13–0.17 of peak, growing +31% ov
 ramp reversibly — consistent with µm-scale flocs (0.7–1 µm Maxwell-Garnett–Mie
 spheres reproduce the flat shape unimposed) and/or the known static instrumental
 floor, with the T-growth being particle-derived (blanks are T-flat).
-**Honest model-selection caveat: ε(T)-ON and ε(T)-OFF fits tie on RMS** (0.0166 vs
+**Model-selection caveat: ε(T)-ON and ε(T)-OFF fits tie on RMS** (0.0166 vs
 0.0164) — ε(T) is in the model because bulk gold measurably does this (Reddy), not
 because the fit prefers it. Remaining decisive test: DLS across the ramp / a
 filtered control (fitting cannot distinguish flocs from stray light).
 
 ### Dataset 2 — CTAC size series
-Irina; 5 samples, TEM 7.8 / 29.2 / 31.5 / 37.9 / 42.0 nm, 4–9% polydispersity, single
-room-T spectra; well-dispersed CTAC-capped monomers.
+Data: I. Tsvetkova. 5 samples, TEM 7.8 / 29.2 / 31.5 / 37.9 / 42.0 nm, 4–9%
+polydispersity, single room-T spectra; well-dispersed CTAC-capped monomers.
 
-- **Confirms the red-tail excess in "good" samples.** With diameter **fixed to TEM
-  ground truth** (amplitude the only free parameter), the data ride above the Mie
-  curve across ~560–660 nm in **every** sample — including the pristine 29/31 nm ones.
-  Independently reproduces the persistent-red-tail-vs-simulation effect reported in
-  the lab, in a *different* surface chemistry and a *different* sample set.
+- **[SUPERSEDED 2026-07-11] The red-tail excess does NOT reproduce here under the
+  calibrated model.** An earlier pass (Brendel–Bormann-era dielectric) suggested the
+  data ride above the Mie curve at ~560–660 nm in every sample. Re-measured with the
+  calibrated J&C model and diameter AND polydispersity pinned to TEM
+  (scripts/fit_ctac_validation.py, fig13): the 29–42 nm samples sit 0.5–2.5% BELOW
+  the model through the mid-red (robust to normalization convention and to trimming
+  TEM outliers), and the 8 nm sample's +6.8% excess is inside the surface-damping
+  systematic (+3.1% at A_surf=0.25; −8.5% at A_surf=1). ⇒ The red-tail anomaly is
+  NOT generic to gold colloids — it is, so far, specific to the citrate/TEG C500
+  sample, which sharpens the surface-chemistry contrast (CLAUDE.md #10).
 - **Single-spectrum size retrieval fails below ~35 nm** (shape-only fit: TEM 7.8 →
   15.7 nm; 29.2 → 19.7; 31.5 → 20.2; 37.9 → 30.7; but 42.0 → 40.2 ✓). An *information*
   limit, not a bug — matches ref 14's own ≥25 nm validity statement.
@@ -289,16 +294,19 @@ room-T spectra; well-dispersed CTAC-capped monomers.
   and make the pedestal/species separation harder than it is at 13 nm.
 
 ### Known model gaps exposed by this analysis
-- **Medium index is frozen and purely real.** `WATER_N = 1.333`, no T-dependence and
-  **no imaginary part** — water is modeled as lossless. Water's index falls ~1.3334
-  (15 °C) → ~1.3200 (75 °C), and water genuinely absorbs in the red/NIR (visible in the
-  blank scans as a rise toward the red with a bump near 740–760 nm). Both should be
-  added. **Falsifiable prediction: neither will explain the pedestal** — a ~1% index
-  change shifts the *resonance* by ~1 nm; it cannot create a flat far-red floor. If
-  adding n(T) absorbs a meaningful fraction of A_sca, something is badly misunderstood
-  and it must be flagged loudly.
-  (Note the medium n(T) effect is a *blue* shift on heating, opposite in sign to the
-  observed peak red-shift — so it is currently *masking* part of the speciation signal.)
+- **[RESOLVED — implemented, prediction verified (CLAUDE.md #13)] Medium index was
+  frozen and purely real.** At the time of this analysis the model used
+  `WATER_N = 1.333` with no T-dependence and no imaginary part. Water's index falls
+  ~1.3334 (15 °C) → ~1.3200 (75 °C), and water genuinely absorbs in the red/NIR
+  (visible in the blank scans as a rise toward the red with a bump near 740–760 nm).
+  Both have SINCE been implemented: n(T) from the CRC table is threaded through all
+  optics, and k(λ) (Pope & Fry) is tabulated but deliberately not wired into Mie
+  (k ≤ 5e-7 is negligible for cross sections, and blank-referenced spectra cancel the
+  bulk path absorption). **The falsifiable prediction held:** adding n(T) left A_sca
+  essentially untouched (0.131→0.167 vs 0.132→0.172) — the pedestal is not a
+  medium-index artifact. (The medium n(T) effect is a *blue* shift on heating,
+  opposite in sign to the observed peak red-shift — before implementation it was
+  masking part of the temperature signal.)
 
 ---
 

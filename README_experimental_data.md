@@ -40,7 +40,7 @@ Characterized in `C500_Final_Report_Eun_Sohl_Koh.pdf` (Figs 16–17 = this data)
 - `aunp_heating_RAW_390-900.csv` — 18 temperatures, 15→75 °C (heating branch)
 - `aunp_cooling_RAW_390-900.csv` —  6 temperatures, 65→15 °C (cooling branch)
 
-These are the honest instrument data: per-temperature 2-replicate averages from
+These are the unmodified instrument data: per-temperature 2-replicate averages from
 the `orgnz` sheet, 390–900 nm, **no normalization applied**. 400 nm IS present so
 the normalization can be derived in code. Design intent: the repo's data layer
 (`io_data.load_series`) does the preprocessing, not a pre-baked CSV.

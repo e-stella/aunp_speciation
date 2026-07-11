@@ -1,12 +1,15 @@
 # AuNP Speciation — UV-Vis broadening from monomer/dimer/trimer equilibria
 
-Prototype model for the Dragnea-lab hypothesis that the anomalously broad,
-red-tailed UV-Vis of 12 nm gold colloids is caused by reversible cluster
-formation (monomer ⇌ dimer ⇌ trimer …), not size polydispersity alone.
+Prototype model for the hypothesis (Dragnea group, Indiana University) that the
+anomalously broad, red-tailed UV-Vis of 12 nm gold colloids is caused by
+reversible cluster formation (monomer ⇌ dimer ⇌ trimer …), not size
+polydispersity alone.
 
 See `CLAUDE.md` for the scientific background, architecture, and — importantly —
-the known limitations (the coupled-dipole model is a lower bound on coupling;
-the analytic gold dielectric should be swapped for tabulated Johnson & Christy).
+the known limitations. `MODELLING_STACK.md` documents each modelling choice and
+its alternatives: production optics use tabulated Johnson & Christy gold with an
+exact multi-sphere T-matrix backend for clusters (the fast coupled-dipole model
+under-couples at near-contact and serves only as a lower bound).
 
 ## Install
 ```bash

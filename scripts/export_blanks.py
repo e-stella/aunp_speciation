@@ -22,8 +22,10 @@ import numpy as np
 
 HERE = os.path.dirname(__file__)
 OUTDIR = os.path.join(HERE, "..", "experimental", "ESK_2011")
-XLS = sys.argv[1] if len(sys.argv) > 1 else \
-    "/Users/eskoh/Documents/Projects/aunp-speciation_old_exp/final.xls"
+if len(sys.argv) < 2:
+    sys.exit("usage: python scripts/export_blanks.py /path/to/final.xls "
+             "(the 2011 archive .xls lives outside the repo)")
+XLS = sys.argv[1]
 
 import xlrd
 wb = xlrd.open_workbook(XLS)

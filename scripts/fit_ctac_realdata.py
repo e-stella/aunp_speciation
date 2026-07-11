@@ -1,6 +1,12 @@
-"""Validate the optics on real data: simulate each sample from its MEASURED
-TEM size distribution (no free size parameter) and overlay on the experimental
-UV-Vis. Uses the accurate Brendel-Bormann gold dielectric. Writes fig9.
+"""Simulate each CTAC sample from its MEASURED TEM size distribution (no free
+size parameter) and overlay on the experimental UV-Vis. Uses the
+Brendel-Bormann gold dielectric. Writes fig9.
+
+SUPERSEDED — kept for provenance. This script predates the dielectric
+calibration (CLAUDE.md #9): Brendel-Bormann is 4-6 nm red-biased at the
+plasmon peak, and the mid-red excess it suggested does NOT reproduce under
+the calibrated J&C model with TEM-pinned polydispersity (CLAUDE.md #10).
+Use scripts/fit_ctac_validation.py for the current CTAC analysis.
 
 Usage: python scripts/fit_ctac_realdata.py path/to/GNP_CTAC_TEM_UV.xlsx
 """

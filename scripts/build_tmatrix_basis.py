@@ -4,8 +4,8 @@ RUN WITH THE VENV:   mstm-env/bin/python scripts/build_tmatrix_basis.py
 Writes outputs/tmatrix_basis.npz, loadable from the system interpreter for fast,
 exact-optics fits (see basis_cache.py).
 
-Keep the grid modest; each grid point is a treams cluster solve. Widen once you
-have time/compute.
+Keep the grid modest; each grid point is a treams cluster solve. Widen when
+time/compute allows.
 """
 import sys, os, time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))

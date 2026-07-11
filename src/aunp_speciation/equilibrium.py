@@ -34,7 +34,7 @@ def association_constants(T, dH2=-40.0, dS2=-0.10, dH3=-70.0, dS3=-0.20):
     entropy-driven, e.g. desolvation- or ligand-release-driven) makes
     aggregation INCREASE with heating. The defaults are an arbitrary
     demonstration choice of the first kind — they are not a claim about any
-    particular sample. Fit or tune to your system.
+    particular sample. Fit or tune to the system under study.
     """
     K2 = np.exp(-(dH2 - T * dS2) / (R_KJ * T))
     K3 = np.exp(-(dH3 - T * dS3) / (R_KJ * T))

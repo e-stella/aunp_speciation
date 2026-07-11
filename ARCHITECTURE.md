@@ -1,9 +1,9 @@
 # A guided tour of the code
 
 This walks through every module in the order the physics flows — from "what
-colour is gold" up to "fit a real spectrum." For each file you get: the idea, the
-key functions, and the papers behind it. If you read top to bottom you will
-understand the whole tool.
+colour is gold" up to "fit a real spectrum." For each file: the idea, the
+key functions, and the papers behind it. Read top to bottom, it covers the
+whole tool.
 
 The big picture in one sentence: **we model a gold colloid as a temperature-
 dependent mixture of monomers, dimers and trimers, compute each species'
@@ -84,7 +84,8 @@ absorbing host is ill-defined and blank-referencing cancels the bulk path).
 **Why the small-particle correction matters.** In a 12 nm particle the conduction
 electrons hit the surface before completing a mean free path, which broadens the
 resonance. At 12 nm this alone widens the monomer peak from ~79 to ~117 nm FWHM —
-so it is a real confound you must include before blaming broadening on clustering.
+so it is a real confound that must be included before attributing broadening to
+clustering.
 
 **Papers.**
 - Analytic gold model: Etchegoin, Le Ru & Meyer, *J. Chem. Phys.* 124, 164705 (2006).
@@ -172,7 +173,7 @@ the dipole. We use the `treams` library. This is the quantitative engine: at a
 genuinely resolved longitudinal peak.
 
 **Key functions.** `species_spectrum_tmatrix(species, ...)` — same signature as
-the CDA version, so it is a drop-in. `available()` tells you whether `treams`
+the CDA version, so it is a drop-in. `available()` reports whether `treams`
 imported.
 
 **Practical note.** `treams` needs older numpy/scipy, so it lives in a separate
@@ -254,8 +255,8 @@ An outer optimiser handles the two nonlinear parameters. We also report
 polydispersity, per-species and **aggregated** gold fractions, uncertainties, and
 verdicts.
 
-**The honest result.** From one spectrum you robustly get the *aggregated* gold
-fraction; size, polydispersity, and the dimer-vs-trimer split are under-determined
+**The identifiability result.** A single spectrum robustly constrains the *aggregated*
+gold fraction; size, polydispersity, and the dimer-vs-trimer split are under-determined
 (they trade off). That motivates the global fit next.
 
 **Papers.**
@@ -293,14 +294,14 @@ gold fractions.
 **Idea.** The exact T-matrix is too slow to call inside a fit loop, so precompute
 it *once* on a grid of (diameter, gap) — in the `mstm-env` venv — save to `.npz`,
 and interpolate at fit time from the ordinary interpreter. The interpolator has
-the same signature as `species_spectrum`, so you pass it straight into
+the same signature as `species_spectrum`, so it can be passed directly to
 `species_basis(..., backend=cache.species_fn)`. Result: fits run on exact optics
 with no `treams` cost per iteration.
 
 **Key functions.** `build_grid(...)` / `save_cache(...)` (build step, venv),
 `load_cache(path)` → `CachedBasis` with `.species_fn` (fit-time interpolator).
 
-**Gotcha (documented from experience):** the optics backend used to *fit* must
+**Pitfall (documented from experience):** the optics backend used to *fit* must
 match any used to *simulate* test data, or size and aggregation come out biased.
 
 ---
@@ -351,7 +352,7 @@ Each script is a small driver that produces one figure or one check:
 - `build_tmatrix_basis.py` — precompute the exact-optics cache (venv).
 - `make_example_data.py` — write `data/example_series.csv`.
 - `fit_real.py` — load a real UV-Vis file and fit it (figure 8). **Start here to
-  fit your own data:** `python scripts/fit_real.py your_file.csv`.
+  fit new data:** `python scripts/fit_real.py <file.csv>`.
 
 ---
 

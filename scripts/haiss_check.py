@@ -3,7 +3,8 @@
 Computes the A_spr/A_450 ratio (Haiss 2007 Eq.11) and LSPR peak position, and
 compares the measured size-signal to (a) our Mie+Brendel-Bormann forward model
 and (b) Haiss's original citrate calibration. Shows that the citrate calibration
-overestimates size for clean CTAC spheres -> you must recalibrate per system.
+overestimates size for clean CTAC spheres -> the calibration must be
+re-derived per surface chemistry.
 
 Usage: python scripts/haiss_check.py path/to/GNP_CTAC_TEM_UV.xlsx
 """

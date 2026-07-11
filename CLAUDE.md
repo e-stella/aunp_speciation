@@ -5,7 +5,7 @@ Context for AI coding sessions (Claude Code etc.). Read this first.
 ## The scientific problem
 12 nm gold nanoparticles at ~4% polydispersity show a UV-Vis extinction peak
 that is **much broader and more red-tailed** than an FDTD/Mie model accounting
-only for the 4% size spread. Hypothesis (Prof. Dragnea's lab): in liquid the
+only for the 4% size spread. Hypothesis (Dragnea group, Indiana University): in liquid the
 particles form a reversible equilibrium of **monomers ⇌ dimers ⇌ trimers ⇌
 multimers**; the UV-Vis is an ensemble/time-integrated snapshot, and plasmonic
 coupling in the clusters adds red-shifted intensity. Supporting evidence: a
@@ -264,7 +264,7 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
       = 0.969/0.963/0.940/0.925 — identifiable, improving with size.
     - **Fits (negative control PASSED):** 29–42 nm all return 100% monomer,
       dimer gold <0.5% (profile bound at RMS+1%; <2.6% at RMS+5%) — with an
-      identifiable basis the pipeline does NOT hallucinate aggregates on clean
+      identifiable basis the pipeline does NOT report spurious aggregates on clean
       monomer samples. The 8 nm sample nominally returns 96/0/4 (%m/d/t) but
       its profile bound is 26% dimer at RMS+1% — NOT identifiable; any
       speciation percentage at ~8 nm must carry that caveat.
@@ -331,8 +331,8 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
     +19.1%):** γ_bulk rises 20.1% (Holstein) → without γ_S the basis responds
     peak −1.7%, @700 +10.5%, @790 +10.9% (~57–67% of everything); WITH γ_S the
     physical response is peak −1.3%, @700 +3.7%, @790 +3.8% (~20–47%). The
-    napkin's "~40%" was directionally right; the exact share depends on the γ_S
-    dilution it itself identified. **γ_S must be in the basis for ε(T) fits**
+    back-of-envelope "~40%" estimate was directionally right; the exact share
+    depends on the γ_S dilution it itself identified. **γ_S must be in the basis for ε(T) fits**
     (`size_correction=True`, now wired through the whole basis incl. the
     polydispersity integral — closes #2's open item) or the fit over-attributes
     T-changes to gold ~3×. Water n(T) adds peak −2.85%/blue −0.4 nm by itself.
@@ -350,7 +350,7 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
     T-growth (#8). D falls to 10.3–10.6 with γ_S(A_surf=1) — the A_surf/D/poly
     degeneracy stands (pin size via absolute extinction, #10; calibrate
     A_surf). RMS 0.0166/0.0172 — identical to Kell: fit quality CANNOT choose
-    the normalization; the branch-offset physics does. **Honest caveats kept:
+    the normalization; the branch-offset physics does. **Caveats retained:
     (a) ε(T)-ON and ε(T)-OFF fits tie on RMS (0.0166 vs 0.0164) — the data
     cannot statistically distinguish "gold heats" from "particles aggregate";
     ε(T) is in the model because bulk gold measurably does this, an a-priori
@@ -507,7 +507,7 @@ The exact T-matrix is too slow inside a fit loop, so build it ONCE on a grid
 Pass that callable as `backend=` to `species_basis` / the fitters. Keep the
 optics backend used to *fit* the same as any used to *simulate* test data — a
 mismatch (CDA data vs exact fit) biases size & aggregation (demonstrated).
-Two gotchas learned the hard way:
+Two failure modes found during development:
 - The interpolator EXTRAPOLATES linearly outside its grid (`fill_value=None`)
   with no warning — in wavelength AND diameter. An old 470–675 nm cache fed
   420–800 nm data silently corrupted fits (and D wandered past the grid edge).
@@ -543,10 +543,9 @@ bracketed, #11); (2) the A_surf–D–poly degeneracy (D rails to ~10 vs TEM
    from stray light (both are λ-flat); only the T-reversible growth + flat
    blanks argue for a physical scatterer. No amount of fitting settles it.
 
-**H. Model-selection honesty:** ε(T)-ON and ε(T)-OFF fits tie on RMS (0.0166 vs
-   0.0164). If a referee asks "how do you know it's the gold and not the
-   particles", the answer is "because bulk gold measurably does this (Reddy),
-   at exactly the magnitude used" — an a-priori argument, not a fit-quality
-   one. Keep it that way; do not tune ε(T) parameters against the C500 data.
+**H. Model-selection caveat:** ε(T)-ON and ε(T)-OFF fits tie on RMS (0.0166 vs
+   0.0164). To the question "is it the gold or the particles?", the answer is
+   "bulk gold measurably does this (Reddy), at exactly the magnitude used" —
+   an a-priori argument, not a fit-quality one. Keep it that way; do not tune ε(T) parameters against the C500 data.
 
 I. Optional: NN surrogate trained on Layer-1+2 spectra for instant inference.

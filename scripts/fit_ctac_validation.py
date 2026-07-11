@@ -1,4 +1,4 @@
-"""Speciation-fit VALIDATION on the CTAC size series (Irina's 5 samples).
+"""Speciation-fit VALIDATION on the CTAC size series (5 samples, paired TEM).
 
 The cleanest data available: 5 monomer samples with paired per-particle TEM,
 no temperature ramp, no concentration drift, no evaporation. D and
