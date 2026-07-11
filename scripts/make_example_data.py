@@ -24,9 +24,15 @@ wl = np.arange(470, 672, 2.0)
 # is validated self-consistently); else CDA
 CACHE = os.path.join(os.path.dirname(__file__), "..", "outputs", "tmatrix_basis.npz")
 if os.path.exists(CACHE):
+    from aunp_speciation import dielectric
     from aunp_speciation.basis_cache import load_cache
-    backend = load_cache(CACHE).species_fn
-    print("example data uses EXACT cached optics")
+    cache = load_cache(CACHE)
+    if cache.gold_model != "unknown":
+        # monomer is computed live at generation time — use the same dielectric
+        # the cached cluster cubes were built with, or the example mixes optics
+        dielectric.use_gold_model(cache.gold_model)
+    backend = cache.species_fn
+    print(f"example data uses EXACT cached optics (gold_model={cache.gold_model})")
 else:
     backend = "cda"
     print("example data uses CDA optics (cache not found)")

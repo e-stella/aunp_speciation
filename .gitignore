@@ -37,7 +37,7 @@ Thumbs.db
 # If the README embeds specific figures, either force-add them
 # (git add -f outputs/figX.png) or move them into a tracked docs/ folder.
 outputs/*.png
-outputs/tmatrix_basis.npz
+outputs/*.npz
 
 # --- Raw / unpublished experimental data -------------------------------------
 # Do NOT publish lab data to a public repo unless you intend to share it.

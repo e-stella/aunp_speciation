@@ -112,8 +112,11 @@ def fit_temperature_series(
     if x0 is None:
         x0 = [11.0, 5.0, -40.0, -0.10, -70.0, -0.20]
     if bounds is None:
-        bounds = ([8.0, 0.5, -120.0, -0.5, -200.0, -0.8],
-                  [20.0, 12.0, 0.0, 0.0, 0.0, 0.0])
+        # Two-sided: dH and dS may take either sign. One-sided (<=0) bounds
+        # would forbid endothermic/entropy-driven association (dH>0, dS>0),
+        # i.e. thermally-INDUCED aggregation — which real samples show.
+        bounds = ([8.0, 0.5, -150.0, -0.6, -150.0, -0.6],
+                  [20.0, 12.0, 150.0, 0.6, 150.0, 0.6])
 
     def residual(theta):
         shapes, _ = _shapes_for(theta, wlf, species, gap_nm, n_medium,

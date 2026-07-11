@@ -43,8 +43,10 @@ def build_grid(diameters_nm, gaps_nm, wavelength_nm,
             for j, g in enumerate(G):
                 cube[i, j] = species_spectrum_tmatrix(sp, d, wl, g, n_medium, lmax)
         data[sp] = cube
+    from .dielectric import current_gold_model
     return dict(diameters=D, gaps=G, wavelength=wl,
                 species=np.array(species), medium=np.array(str(n_medium)),
+                gold_model=np.array(current_gold_model()),
                 lmax=lmax, **{f"cube__{k}": v for k, v in data.items()})
 
 
@@ -60,6 +62,10 @@ class CachedBasis:
         self.G = npz["gaps"]
         self.wl = npz["wavelength"]
         self.medium = str(npz["medium"])
+        # dielectric the cluster cubes were built with (older caches: unknown).
+        # The fit-time monomer (Mie) uses the CURRENT module default — keep the
+        # two consistent or the basis mixes dielectrics.
+        self.gold_model = str(npz["gold_model"]) if "gold_model" in npz else "unknown"
         self.species_list = [str(s) for s in npz["species"]]
         self._interp = {}
         for sp in self.species_list:

@@ -29,9 +29,12 @@ R_KJ = 8.314462618e-3  # kJ / (mol K)
 def association_constants(T, dH2=-40.0, dS2=-0.10, dH3=-70.0, dS3=-0.20):
     """van 't Hoff K2(T), K3(T). dH in kJ/mol, dS in kJ/(mol K).
 
-    Defaults: exothermic association (dH<0) with entropy penalty (dS<0), i.e.
-    higher T favors monomers -> aggregation decreases with heating (typical of
-    enthalpy-driven association). Tune to your system.
+    Sign conventions: dH<0 & dS<0 (enthalpy-driven association) makes
+    aggregation decrease with heating; dH>0 & dS>0 (endothermic /
+    entropy-driven, e.g. desolvation- or ligand-release-driven) makes
+    aggregation INCREASE with heating. The defaults are an arbitrary
+    demonstration choice of the first kind — they are not a claim about any
+    particular sample. Fit or tune to your system.
     """
     K2 = np.exp(-(dH2 - T * dS2) / (R_KJ * T))
     K3 = np.exp(-(dH3 - T * dS3) / (R_KJ * T))

@@ -39,19 +39,67 @@ def _gold_epsilon_etchegoin(lam):
 
 # --- selectable dielectric model ---------------------------------------------
 # 'etchegoin' : fast analytic (default; peak ~527 nm, biased for quantitative work)
-# 'bb'        : tabulated Brendel-Bormann (Rakic et al. 1998) — accurate, matches
-#               Johnson & Christy; recommended for fitting real spectra. (ties to
-#               ref 15: use measured/accurate constants, esp. the imaginary part.)
+# 'bb'        : tabulated Brendel-Bormann (Rakic et al. 1998) model fit. CAUTION:
+#               in the 500-540 nm window its eps1 is ~0.4 less negative than
+#               measured J&C, so the 13 nm monomer peak lands ~527 nm — same red
+#               bias as 'etchegoin' (measured here; do not assume it "matches J&C").
+# 'jc'        : tabulated Johnson & Christy (1972) measured n,k — 49 points,
+#               187.9-1937 nm, embedded below (public-domain digitization from
+#               refractiveindex.info). Recommended for fitting real spectra:
+#               13 nm monomer peak ~521 nm in bare water (ties to ref 18: use
+#               measured constants, esp. the imaginary part).
 _GOLD_MODEL = "etchegoin"
 _BB_TABLE = None
 
+# Johnson & Christy, Phys. Rev. B 6, 4370 (1972), gold: (vacuum lambda nm, n, k).
+# CC0 digitization via refractiveindex.info (main/Au/nk/Johnson.yml).
+_JC_NM_N_K = np.array([
+    (187.9, 1.280, 1.188), (191.6, 1.320, 1.203), (195.3, 1.340, 1.226),
+    (199.3, 1.330, 1.251), (203.3, 1.330, 1.277), (207.3, 1.300, 1.304),
+    (211.9, 1.300, 1.350), (216.4, 1.300, 1.387), (221.4, 1.300, 1.427),
+    (226.2, 1.310, 1.460), (231.3, 1.300, 1.497), (237.1, 1.320, 1.536),
+    (242.6, 1.320, 1.577), (249.0, 1.330, 1.631), (255.1, 1.330, 1.688),
+    (261.6, 1.350, 1.749), (268.9, 1.380, 1.803), (276.1, 1.430, 1.847),
+    (284.4, 1.470, 1.869), (292.4, 1.490, 1.878), (300.9, 1.530, 1.889),
+    (310.7, 1.530, 1.893), (320.4, 1.540, 1.898), (331.5, 1.480, 1.883),
+    (342.5, 1.480, 1.871), (354.2, 1.500, 1.866), (367.9, 1.480, 1.895),
+    (381.5, 1.460, 1.933), (397.4, 1.470, 1.952), (413.3, 1.460, 1.958),
+    (430.5, 1.450, 1.948), (450.9, 1.380, 1.914), (471.4, 1.310, 1.849),
+    (495.9, 1.040, 1.833), (520.9, 0.620, 2.081), (548.6, 0.430, 2.455),
+    (582.1, 0.290, 2.863), (616.8, 0.210, 3.272), (659.5, 0.140, 3.697),
+    (704.5, 0.130, 4.103), (756.0, 0.140, 4.542), (821.1, 0.160, 5.083),
+    (892.0, 0.170, 5.663), (984.0, 0.220, 6.350), (1088.0, 0.270, 7.150),
+    (1216.0, 0.350, 8.145), (1393.0, 0.430, 9.519), (1610.0, 0.560, 11.210),
+    (1937.0, 0.920, 13.780),
+])
+
+
+_JC_SPLINE = None
+
+
+def _jc_spline():
+    """Cubic spline of (n, k) vs wavelength. The J&C grid is ~25 nm apart in
+    the visible; linear interpolation puts kinks at the nodes and the LSPR
+    maximum snaps to them (measured: peak pinned to the 520.9 nm node)."""
+    global _JC_SPLINE
+    if _JC_SPLINE is None:
+        from scipy.interpolate import CubicSpline
+        wl_t, n_t, k_t = _JC_NM_N_K.T
+        _JC_SPLINE = CubicSpline(wl_t, np.stack([n_t, k_t], axis=1), axis=0)
+    return lambda lam: _JC_SPLINE(lam).T
+
 
 def use_gold_model(name):
-    """Select the gold dielectric model: 'etchegoin' or 'bb'."""
+    """Select the gold dielectric model: 'etchegoin', 'bb', or 'jc'."""
     global _GOLD_MODEL
-    if name not in ("etchegoin", "bb"):
-        raise ValueError("model must be 'etchegoin' or 'bb'")
+    if name not in ("etchegoin", "bb", "jc"):
+        raise ValueError("model must be 'etchegoin', 'bb', or 'jc'")
     _GOLD_MODEL = name
+
+
+def current_gold_model():
+    """Name of the active gold dielectric model (for provenance/caches)."""
+    return _GOLD_MODEL
 
 
 def _load_bb():
@@ -74,6 +122,9 @@ def gold_epsilon(wavelength_nm, model=None):
     if m == "bb":
         wl_t, eps_t = _load_bb()
         return np.interp(lam, wl_t, eps_t.real) + 1j * np.interp(lam, wl_t, eps_t.imag)
+    if m == "jc":
+        nk = _jc_spline()(lam)
+        return (nk[0] + 1j * nk[1])**2
     return _gold_epsilon_etchegoin(lam)
 
 

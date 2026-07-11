@@ -30,14 +30,28 @@ def _parse_temperature(label):
     return float(m.group(1)) if m else None
 
 
-def load_series(path, delimiter=None, wavelength_range=(420, 800)):
+def load_series(path, delimiter=None, wavelength_range=(420, 800),
+                normalize=None, anchor_nm=400.0):
     """Load a spectra file. Returns (wavelength_nm, spectra, temps_K_or_None).
 
     wavelength_range=(min_nm, max_nm) restricts the returned arrays to that
     (inclusive) window; pass None to keep the full range. The default
     (420, 800) nm trims the deep-UV interband region the Etchegoin dielectric
     does not model and the 350 nm lamp-changeover artifact seen on Cary
-    instruments (see "Known limitations" #7 in CLAUDE.md).
+    instruments (see "Known limitations" #6 in CLAUDE.md).
+
+    normalize (default None = no-op, keeps synthetic/pre-cleaned data as-is):
+      "mult_400nm" — multiplicative concentration normalization anchored at
+      anchor_nm: A_norm(l, T) = A(l, T) * A(anchor, T_ref) / A(anchor, T),
+      with T_ref the FIRST ext_ column in the file. At ~400 nm gold extinction
+      is interband-dominated and ~speciation-invariant, so it tracks total
+      concentration; a multiplicative scale is the Beer-Lambert-correct
+      drift correction (see README_experimental_data.md).
+
+    ORDER IS FIXED: normalization runs FIRST (the anchor must still be in the
+    array), THEN the wavelength_range clip. anchor_nm and wavelength_range are
+    independent — the 400 nm anchor deliberately sits outside the 420-800 nm
+    fit window, so feed RAW full-range files (e.g. 390-900 nm), not pre-clipped.
     """
     with open(path, newline="") as f:
         sample = f.read(2048)
@@ -50,6 +64,18 @@ def load_series(path, delimiter=None, wavelength_range=(420, 800)):
     arr = np.array([[float(x) for x in r] for r in rows], dtype=float)
     wl = arr[:, 0]
     Y = arr[:, 1:].T  # (n_columns, n_wl)
+    if normalize is not None:
+        if normalize != "mult_400nm":
+            raise ValueError(f"unknown normalize mode: {normalize!r} "
+                             "(expected None or 'mult_400nm')")
+        if not (wl.min() <= anchor_nm <= wl.max()):
+            raise ValueError(
+                f"anchor_nm={anchor_nm} nm is outside the loaded data "
+                f"({wl.min():.1f}-{wl.max():.1f} nm). Normalization needs the "
+                "anchor in the RAW file (it runs before the wavelength_range "
+                "clip) — feed the full-range RAW CSV, not a pre-clipped one.")
+        ia = int(np.argmin(np.abs(wl - anchor_nm)))
+        Y = Y * (Y[0, ia] / Y[:, ia])[:, None]   # T_ref = first ext_ column
     if wavelength_range is not None:
         lo, hi = wavelength_range
         mask = (wl >= lo) & (wl <= hi)

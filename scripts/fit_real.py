@@ -2,11 +2,15 @@
 
 Usage:
     python scripts/fit_real.py [path/to/spectra.csv] [--range MIN_NM MAX_NM]
+                               [--normalize {none,mult_400nm}] [--anchor NM]
 
 - Auto-detects a temperature series (>=2 T columns) -> global fit; otherwise a
   single-spectrum fit.
 - --range restricts the fitted window (default 420 800 nm); pass "--range 0 1e9"
-  to keep the full spectrum. See "Known limitations" #7 in CLAUDE.md.
+  to keep the full spectrum. See "Known limitations" #6 in CLAUDE.md.
+- --normalize mult_400nm applies the multiplicative concentration normalization
+  anchored at --anchor (default 400 nm) BEFORE the range clip — needs a RAW
+  full-range file that still contains the anchor (see README_experimental_data).
 - Uses the precomputed EXACT T-matrix basis (outputs/tmatrix_basis.npz) if it
   exists, else falls back to the fast CDA optics. (Build the cache once with
   mstm-env/bin/python scripts/build_tmatrix_basis.py)
@@ -18,9 +22,17 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+from aunp_speciation import dielectric
 from aunp_speciation.io_data import load_series
 from aunp_speciation.fitting import fit_spectrum
 from aunp_speciation.fit_global import fit_temperature_series
+
+# Real-data driver -> measured optical constants. Tabulated J&C puts the 12.9 nm
+# monomer at ~523 nm in water (matches the C500 series); the analytic Etchegoin
+# and BB models are both ~4-6 nm red-biased here. NB: a T-matrix basis cache
+# embeds whatever dielectric it was BUILT with — rebuild it under 'jc'
+# (scripts/build_tmatrix_basis.py) or the cache silently overrides this choice.
+dielectric.use_gold_model("jc")
 
 HERE = os.path.dirname(__file__)
 OUT = os.path.join(HERE, "..", "outputs")
@@ -29,33 +41,58 @@ SPECIES = ("monomer", "dimer", "trimer_linear")
 
 
 def parse_args(argv):
-    """Return (data_path, wavelength_range). Supports an optional
-    `--range MIN MAX` flag anywhere after the program name."""
+    """Return (data_path, wavelength_range, normalize, anchor_nm). Flags
+    (`--range MIN MAX`, `--normalize MODE`, `--anchor NM`) may appear anywhere
+    after the program name."""
     args = list(argv[1:])
     wl_range = (420.0, 800.0)
+    normalize = None
+    anchor = 400.0
     if "--range" in args:
         i = args.index("--range")
         wl_range = (float(args[i + 1]), float(args[i + 2]))
         del args[i:i + 3]
+    if "--normalize" in args:
+        i = args.index("--normalize")
+        mode = args[i + 1]
+        if mode not in ("none", "mult_400nm"):
+            sys.exit(f"--normalize must be 'none' or 'mult_400nm', got {mode!r}")
+        normalize = None if mode == "none" else mode
+        del args[i:i + 2]
+    if "--anchor" in args:
+        i = args.index("--anchor")
+        anchor = float(args[i + 1])
+        del args[i:i + 2]
     data = args[0] if args else os.path.join(HERE, "..", "data",
                                              "example_series.csv")
-    return data, wl_range
+    return data, wl_range, normalize, anchor
 
 
-DATA, WL_RANGE = parse_args(sys.argv)
+DATA, WL_RANGE, NORMALIZE, ANCHOR = parse_args(sys.argv)
 
 
 def choose_backend():
     if os.path.exists(CACHE):
         from aunp_speciation.basis_cache import load_cache
-        print(f"using EXACT cached T-matrix optics: {os.path.basename(CACHE)}")
-        return load_cache(CACHE).species_fn
+        cache = load_cache(CACHE)
+        print(f"using EXACT cached T-matrix optics: {os.path.basename(CACHE)} "
+              f"(gold_model={cache.gold_model}, "
+              f"wl {cache.wl.min():.0f}-{cache.wl.max():.0f} nm, "
+              f"D {cache.D.min():.0f}-{cache.D.max():.0f} nm)")
+        if cache.gold_model != dielectric.current_gold_model():
+            sys.exit(f"cache dielectric ({cache.gold_model}) != active "
+                     f"({dielectric.current_gold_model()}); rebuild the cache "
+                     "with scripts/build_tmatrix_basis.py or delete it.")
+        return cache.species_fn
     print("cache not found -> using fast CDA optics (lower-bound coupling)")
     return "cda"
 
 
 def main():
-    wl, spectra, temps_K = load_series(DATA, wavelength_range=WL_RANGE)
+    wl, spectra, temps_K = load_series(DATA, wavelength_range=WL_RANGE,
+                                       normalize=NORMALIZE, anchor_nm=ANCHOR)
+    if NORMALIZE:
+        print(f"applied {NORMALIZE} normalization (anchor {ANCHOR:g} nm)")
     backend = choose_backend()
     print(f"loaded {os.path.basename(DATA)}: {spectra.shape[0]} spectrum(a), "
           f"{len(wl)} wavelengths, {wl.min():.0f}-{wl.max():.0f} nm")
