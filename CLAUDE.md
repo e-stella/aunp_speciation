@@ -91,10 +91,14 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
    (agg jumps to a non-credible 0.7–0.8 with lower RMS — more-flexible-but-
    wrong). ⇒ **keep `jc` for the 13 nm C500 fits; use yakubovsky as the
    ε-systematics bound and for ≥50 nm work (where ref 18's validation lives).**
-   Also: a size-damping correction exists (`gold_epsilon_sized`) but is NOT yet
-   wired into the size-integral of `spectra.species_basis` (mie has
-   `size_correction=` flag, default off) — wire it so each size in the
-   polydispersity integral uses its own ε. Big effect: FWHM 79→117 nm at 12 nm.
+   UPDATE: the size-damping correction IS now wired through the whole basis —
+   `species_basis(..., size_correction=True, A_surf=)` gives each size in the
+   polydispersity integral its own γ_S ε, and both cluster backends accept it
+   (the T-matrix cache bakes it in and records the flag). Required for ε(T)
+   fits (#11). Remaining knob: A_surf is assumed 1.0 (matches Chetoui's
+   γ_S = 0.143 eV at D=12.9) but trades against D/poly in fits — with it the
+   fitted D falls to ~10.5–10.8 vs TEM 12.9; consider calibrating A_surf on a
+   TEM-pinned sample.
 3. **Cluster polydispersity** is applied approximately (size-scaled). Refine
    with per-size cluster runs if needed.
 4. Cluster geometry set is minimal (dimer, linear/triangular trimer). Extend
@@ -161,6 +165,42 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
    basis gets absorbed by D AND fake a_sca). (c) See the fit_global.py
    docstring for the ≥60 nm design note: the species basis keeps its own
    Mie/T-matrix scattering; A_sca only absorbs the un-enumerated population.
+   **EXCLUSIONS CLOSED (what the pedestal is NOT):**
+   (i) NOT small-aggregate Rayleigh — n_sca = 0.73/0.79, not 4 (above).
+   (ii) NOT a permittivity *dataset* artifact — yakubovsky raises the model tail
+        but accounts for only ~1–2% of the measured pedestal (#2).
+   (iii) NOT instrumental / NOT a thermal-optical artifact of the cell. The 2011
+        `raw` sheet holds **2–4 water-blank scans at EVERY temperature**, interleaved
+        before each sample scan. **Blanks are flat with T:** far-red level drifts only
+        −0.0016 (700 nm) / −0.0020 (790 nm) over 15→75 °C — ~15× smaller than the
+        sample pedestal's ≈ +0.03 growth, and in the OPPOSITE direction. Excludes,
+        for the *T-dependent* component: stray light, convection/schlieren, and
+        gas-bubble formation from dissolved gas (pure water carries the same gas load
+        and shows nothing). NB a *static* ~0.03 instrumental offset IS present in the
+        far red and contributes to the pedestal's absolute baseline — not its T-growth.
+   (iv) NOT nanobubbles on the particles (lit-map §F): nanobubbles require
+        **hydrophobic** surfaces (citrate/TEG AuNP are deliberately hydrophilic), high
+        curvature **suppresses** them on gold, observed surface nanobubbles are
+        120–145 nm (too large for a 13 nm sphere), and heating to 40–60 °C *reduces*
+        their number. The *laser-driven* plasmonic-nanobubble literature is a different
+        regime and must not be conflated with mild bulk heating.
+   **(v) FIFTH EXCLUSION MEASURED — ε(T) (see #11) — BUT THE RESIDUAL-PEDESTAL
+   CHARACTERIZATION IS ⚠️ PROVISIONAL (see #14: evaporation).** Under ε(T) +
+   γ_S basis + Kell density norm: A_sca drops ~0.22 → 0.13–0.17 of series max
+   (≈40% of the old pedestal was gold-physics + basis-width artifact — this
+   part stands), and the surviving exponent collapses n_sca = 0.73 →
+   0.00±0.06, a flat floor growing +31% over 15→75 °C. **CAUTION: a
+   wavelength-flat, T-growing brightness term is exactly the signature of the
+   Kell normalization's evaporation blindness (#14) — Kell over-brightens
+   high-T spectra by ~+2.5%(45 °C) to ~+4.2%(75 °C). The n_sca=0.00 landing
+   exactly on the bound, and its move 0.73→0.00 when the normalization
+   changed, are red flags that the pedestal term is absorbing a normalization
+   error. Do NOT treat the flat pedestal or its +31% growth as physical until
+   an evaporation-aware concentration term is in.** Floc-test result (stands
+   as a shape statement): 0.7–1 µm Maxwell-Garnett–Mie spheres reproduce a
+   flat pedestal unimposed (equiv n = 0.00/−0.27, shape-RMS 0.088–0.12);
+   ≤200 nm flocs give n ≥ +1.3. Next discriminator: evaporation-aware
+   normalization first, then DLS/filtration if a pedestal still survives.
 9. **[FIXED] Monomer peak ~4 nm red of experiment.** Root cause was the gold
    dielectric DATASET, not the medium: tabulated Johnson & Christy (model
    `'jc'`, embedded in `dielectric.py`, cubic-spline interpolated — linear
@@ -193,6 +233,102 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
     including the pristine 29/31 nm ones — independently reproducing the
     persistent-red-tail-vs-simulation effect reported in the lab.
 
+11. **[IMPLEMENTED — AND THE VERDICT IS LARGELY AGAINST THE OLD READING] Gold ε(λ,T).**
+    `gold_epsilon(..., temperature_C=)` now applies a bulk thermal Drude-damping
+    retune on top of any base dataset: γ_bulk(T) from the **Holstein electron–phonon
+    form (Θ_D = 170 K), anchored at Olmon's 44 meV @ 20 °C** — implemented from
+    theory, stated explicitly (the Reddy 2016 measured single-crystal slope
+    ~1.1e-4 eV/K agrees to ~12%; their Drude+2CP tables were obtained from the
+    open-access full text, and the author list is verified: Reddy, Guler,
+    Kildishev, Boltasseva, Shalaev, *OME* 6, 2776). γ_S stays T-independent per
+    Chetoui and composes with γ_bulk(T) in a SINGLE Drude retune
+    (`gold_epsilon_sized(..., temperature_C=)`) — the deltas are not additive.
+    Threaded through mie/clusters/clusters_tmatrix/spectra/fitters; the T-matrix
+    cache gained a temperature axis ([15,45,75] °C, linear interp) and records
+    `eps_t_model`; `fit_real.py` refuses stale caches; `--fixed-eps` reproduces
+    legacy fits. Drude baseline updated to Olmon (ω_p=8.45 eV, γ=44 meV; was
+    9.0/0.07 textbook values).
+    **MEASURED (D=12.9, jc, 15→75 °C; observed: peak −2.7%, @700 +15.6%, @790
+    +19.1%):** γ_bulk rises 20.1% (Holstein) → without γ_S the basis responds
+    peak −1.7%, @700 +10.5%, @790 +10.9% (~57–67% of everything); WITH γ_S the
+    physical response is peak −1.3%, @700 +3.7%, @790 +3.8% (~20–47%). The
+    napkin's "~40%" was directionally right; the exact share depends on the γ_S
+    dilution it itself identified. **γ_S must be in the basis for ε(T) fits**
+    (`size_correction=True`, now wired through the whole basis incl. the
+    polydispersity integral — closes #2's open item) or the fit over-attributes
+    T-changes to gold ~3×. Water n(T) adds peak −2.85%/blue −0.4 nm by itself.
+    **REFIT VERDICT — ⚠️ PROVISIONAL, pending evaporation-aware concentration
+    correction (#14):** with ε(T)+n(T) in the model and the Kell density
+    normalization, ΔH₂ collapses to ≈0 (+0.9±1.2 heating, +4.1 cooling), the
+    aggregated fraction is ~T-flat (0.24 heating / 0.10 cooling), and the
+    thermally-driven speciation signal essentially vanishes — BUT the Kell
+    normalization is blind to the measured ~5.6% evaporation over the run
+    (#14), which injects a spurious wavelength-flat, T-growing brightness
+    error of exactly the kind the pedestal term absorbs. The claim "the
+    thermally-driven speciation does not survive" is therefore NOT settled;
+    re-decide after an evaporation-aware (time-monotonic) concentration term.
+    What stands regardless: the ε(T)/γ_S/n(T) physics, its measured basis
+    response, and the ~3× γ_S-dilution requirement. RMS improves
+    0.0225→0.0166 (fit quality, not verdict). **Honest caveat: the
+    ε(T)-ON and ε(T)-OFF fits reach the SAME RMS (0.0166 vs 0.0164)** — the
+    data cannot statistically distinguish "gold heats" from "speciation
+    shifts"; ε(T) belongs in the model because it is mandatory physics, not
+    because the fit prefers it. Also: with γ_S(A_surf=1) the fitted D falls to
+    10.5–10.8 (below TEM 12.9 and the cache grid) — a real A_surf/D/poly
+    degeneracy; pin size via absolute extinction (#10) and consider
+    calibrating A_surf.
+12. **[IMPLEMENTED] Normalization re-decided: `normalize="density"` (Kell 1975).**
+    `load_series` now supports a pure dilution correction
+    A·ρ(T_ref)/ρ(T) (Kell polynomial, verified ρ(15)=999.10, ρ(75)=974.85 —
+    NB the denominator coefficient is 16.87985e-3; a digit transposition was
+    caught against these reference values). No anchor-wavelength assumption;
+    needs parseable temps in every column header. **`mult_400nm` is DEPRECATED/
+    BIASED** (premise measurably violated: A(400) rises +3.18% while Kell
+    predicts −2.43%; flat rescale inflates the apparent peak change ~8.5×);
+    kept only for reproducing old results. `fit_real.py --normalize density`.
+    **ISOSBESTIC RE-TEST — ⚠️ PROVISIONAL, pending evaporation-aware correction
+    (#14).** Under the Kell density normalization the speciation residual has
+    no common zero-crossing (small-ΔT curves show dozens of noise-level
+    crossings; ΔT≥20 °C curves NONE in 500–700 nm). BUT this was tested ONLY
+    under Kell, which is blind to the measured ~5.6% evaporation; under a
+    correct multiplicative concentration correction, crossings DO exist and
+    drift 562 → 577 nm. So "the 575 nm isosbestic does not exist" is NOT
+    established either way — what IS established is that its location/existence
+    is normalization-dependent, so it cannot carry the two-state argument
+    until the concentration history is pinned down.
+13. **[IMPLEMENTED] Medium n(T) + water k(λ).** `medium_index(name, temperature_C)
+    -> complex`; water n from the CRC 589 nm table (1.3334@15 → 1.3229@80 °C;
+    dn/dT dispersion neglected), threaded through all optics. Water k(λ)
+    tabulated 400–900 nm (`water_k()`; Pope & Fry 1997 + Hale & Querry 1973,
+    incl. the 740–760 nm O–H bump seen in blanks) but NOT wired into Mie —
+    k ≤ 5e-7 is negligible for particle cross sections, absorbing-host Mie is
+    ill-defined, and blank-referenced spectra cancel the bulk path absorption.
+    **Prediction verified:** freezing n(T) moves D/ΔH₂ slightly (it had been
+    masking part of the T-signal — n(T) alone is peak −2.85%, blue −0.4 nm)
+    and leaves A_sca essentially untouched (0.131→0.167 vs 0.132→0.172) — no
+    loud flag needed; nothing is misunderstood there.
+14. **[CRITICAL — INVALIDATES THE #8/#11/#12 VERDICTS AS STATED] `normalize=
+    "density"` is blind to EVAPORATION; a time-monotonic concentration term is
+    required.** Branch-offset evidence (raw data, heating vs cooling at MATCHED
+    temperatures): the cooling branch is systematically BRIGHTER — at 15 °C
+    +5.63% @400, +5.65% @523, +5.95% @700, +6.78% @790 nm; shrinking to +1.9%
+    at 65 °C. Conclusive because (a) the offset is nearly wavelength-
+    independent in percent ⇒ a pure multiplicative CONCENTRATION change, not
+    chemistry; (b) it scales with the TIME GAP between scans (heating-15 °C is
+    the first scan, cooling-15 °C the last ⇒ largest offset; the 65 °C scans
+    are adjacent ⇒ smallest). The sample concentrated ~5.6% over the run by
+    evaporation. Kell corrects only thermal expansion (concentration DOWN
+    2.4%) while the true concentration went UP ⇒ Kell OVER-BRIGHTENS high-T
+    spectra by ~+2.5% (45 °C) to ~+4.2% (75 °C), monotonically in T. A
+    spurious wavelength-flat brightness error growing with T is EXACTLY what
+    the fitted "flat pedestal (n_sca=0.00) growing +31%" looks like — and
+    n_sca moving 0.73 (anchor norm) → exactly 0.00 (Kell) when only the
+    normalization changed is itself a red flag that the pedestal term absorbs
+    normalization error. FIX (not yet implemented): an evaporation-aware
+    multiplicative concentration model, e.g. c(t) monotonic in SCAN TIME/ORDER
+    (identifiable from the matched-T branch offsets), composed with Kell;
+    then re-run the #8/#11/#12 verdicts.
+
 ## Conventions
 - Units: lengths in nm, cross sections in nm². Wavelengths are vacuum λ₀.
 - All optics done *in the medium*: size parameter/wavenumber use n_medium; the
@@ -214,20 +350,23 @@ venv for the exact T-matrix backend (treams needs numpy 1.26 / scipy 1.11).
   3.10 lives at /Library/Frameworks): `python3.10 -m venv mstm-env &&
   mstm-env/bin/pip install "numpy==1.26.4" "scipy==1.11.4" treams matplotlib`.
 - `mstm-env/bin/python scripts/build_tmatrix_basis.py` — precompute the exact
-  T-matrix basis over a (diameter, gap) grid -> outputs/tmatrix_basis.npz
-  (~5.5 min at lmax=6, D 11–15, gaps 0.5–3, wl 420–800, gold_model='jc').
+  T-matrix basis over a (T, diameter, gap) grid -> outputs/tmatrix_basis.npz
+  (~19 min at lmax=6: T [15,45,75] °C, D 11–15, gaps 0.5–3, wl 420–800,
+  gold_model='jc', size_correction=True baked in; cache records eps_t_model
+  and the flags — fit_real refuses mismatches).
 - `python scripts/make_example_data.py` — write data/example_series.csv (uses the
   cache if present, so the demo is optics-consistent).
 - `python scripts/fit_real.py [file.csv] [--range MIN MAX] [--normalize
-  {none,mult_400nm}] [--anchor NM]` — fig 8; load a real UV-Vis file and fit.
-  Sets gold model 'jc'; uses the cached EXACT optics if present (fast, no treams
-  at fit time; refuses a cache built with a different gold_model), else CDA.
-  Validated: on the self-consistent example (jc basis) it recovers D=11.6 nm
-  (vs 12, ±0.1 formal — mildly biased by n_sizes/stride differences between
-  generation and fit), ΔH₂=-25.2 (vs -25), RMS at the noise floor.
+  {none,density,mult_400nm}] [--anchor NM] [--fixed-eps]` — fig 8; load a real
+  UV-Vis file and fit with gold ε(T) + water n(T) per temperature (--fixed-eps
+  for legacy fixed-ε fits). Sets gold model 'jc'; uses the cached EXACT optics
+  if present (refuses a cache with mismatched gold_model / eps_t_model / no T
+  axis), else CDA with γ_S ON. Validated: on the self-consistent example
+  (jc + ε(T) + γ_S basis) it recovers D=11.91 nm (vs 12), ΔH₂=-26.2 (vs -25),
+  RMS at the noise floor, A_sca≈0 with n_sca flagged unidentified.
   Real C500 series: `python scripts/fit_real.py
-  experimental/ESK_2011/aunp_heating_RAW_390-900.csv --normalize mult_400nm` —
-  but see limitation #8 (baseline pedestal) before trusting the raw-shape fit.
+  experimental/ESK_2011/aunp_heating_RAW_390-900.csv --normalize density` —
+  see #11's verdict before interpreting the speciation numbers.
 
 ## The cached-exact-optics pattern (important)
 The exact T-matrix is too slow inside a fit loop, so build it ONCE on a grid
@@ -248,25 +387,35 @@ Two gotchas learned the hard way:
   adopt it. Rebuild the cache after changing the dielectric.
 
 ## Next steps (suggested order)
-0. **Add `yakubovsky` size-matched thin-film ε to `dielectric.py`** (limitation
-   #2, ref 18) and re-check the monomer peak + red tail. Cheap, and it RULES OUT
-   an ε artifact as the source of the static red-side excess before #1 attributes
-   that excess to a scattering population. Do this BEFORE trusting #1's amplitude.
-1. **Scattering term: DONE** (see #8; n_sca≈0.7, not Rayleigh). Follow-ups:
-   (a) replace the phenomenological λ^-n with a real large-aggregate Mie
-   species (a few 100 nm–1 µm effective sizes) to test the floc hypothesis
-   against the fitted n; (b) revisit the mult_400nm anchor — the pedestal
-   lifts 400 nm too, so the anchor slightly over-corrects concentration;
-   (c) the pedestal–(D, poly) degeneracy leaves D ~2σ low vs TEM: pin size
-   with absolute extinction/Haiss (#10).
-2. Wire the size-damping correction into the polydispersity integral (tabulated
-   J&C 'jc' is DONE and calibrated to 522.8 nm; size-damping remains off there).
-3. Add the Haiss A_spr/A_450 ratio + absolute extinction to pin size &
-   concentration (breaks the size/poly degeneracy the T-series leaves open).
-4. Real-data driver: DONE end-to-end (load → normalize → clip → global fit;
-   limitations 6/7/9 fixed, 8 diagnosed). Remaining: promote the baseline-
-   subtracted diagnostic into `fit_real.py` proper once step 1 lands.
-5. Validate against TEM-characterized samples + the temperature/isosbestic
-   series (first pass done: D 12.5–12.6 both branches vs TEM 12.9±7%; pedestal
-   reversible with T on heating AND cooling).
-6. Optional: NN surrogate trained on Layer-1+2 spectra for instant inference.
+
+**A–D + F: code DONE; the scientific verdicts are ⚠️ PROVISIONAL pending #14
+(evaporation).** Under Kell the fits said: thermally-driven speciation gone
+(ΔH₂≈0), pedestal flat (n=0) growing +31%, no isosbestic — but Kell is blind
+to the measured ~5.6% evaporation, whose signature (wavelength-flat,
+T-monotonic brightness) is degenerate with all three claims. What stands
+regardless: the ε(T)/γ_S/n(T) physics and infrastructure, the measured basis
+T-response, the γ_S-dilution requirement, and the floc shape result.
+
+**A0. [NEW — DO FIRST] Evaporation-aware concentration correction (#14):**
+   model c(t) as monotonic in scan time/order, identified from the matched-T
+   heating-vs-cooling offsets (+5.6% @15 °C → +1.9% @65 °C), composed with
+   Kell; then RE-RUN the #8/#11/#12 verdicts (speciation survival, isosbestic
+   562→577 nm drift, pedestal shape/growth).
+
+**E. Break the A_surf–D–poly degeneracy (#2, #10, #11):** pin size with ABSOLUTE
+   extinction + Haiss A_spr/A_450 (not the normalized shape), and calibrate
+   A_surf on a TEM-pinned monomer sample. With γ_S(A_surf=1) in the basis the
+   fitted D rails to 10.5–10.8 vs TEM 12.9 — the biggest remaining model knob.
+
+**G. EXPERIMENTAL (lab, not code) — now THE decisive test:** DLS across the ramp
+   and/or a filtered/centrifuged control. The fit cannot distinguish µm-flocs
+   from stray light (both are λ-flat); only the T-reversible growth + flat
+   blanks argue for a physical scatterer. No amount of fitting settles it.
+
+**H. Model-selection honesty:** ε(T)-ON and ε(T)-OFF fits tie on RMS (0.0166 vs
+   0.0164). If a referee asks "how do you know it's the gold and not the
+   particles", the answer is "because bulk gold measurably does this (Reddy),
+   at exactly the magnitude used" — an a-priori argument, not a fit-quality
+   one. Keep it that way; do not tune ε(T) parameters against the C500 data.
+
+I. Optional: NN surrogate trained on Layer-1+2 spectra for instant inference.

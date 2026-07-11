@@ -69,20 +69,23 @@ def mie_ab(m, x, nmax=None):
 
 
 def monomer_cross_sections(diameter_nm, wavelength_nm, n_medium="water",
-                           size_correction=False, A_surf=1.0):
+                           size_correction=False, A_surf=1.0,
+                           temperature_C=None):
     """Extinction, scattering, absorption cross sections (nm^2) of one sphere.
 
     Vectorized over wavelength. Returns dict of arrays. If size_correction,
     applies the small-particle surface-scattering damping (see dielectric.py).
+    temperature_C (default None = 20 C reference) applies BOTH the gold bulk
+    thermal damping (limitation #11) and the water n(T) (limitation #13).
     """
-    nm = medium_index(n_medium)
+    nm = medium_index(n_medium, temperature_C).real   # propagation: real part
     lam = np.atleast_1d(np.asarray(wavelength_nm, dtype=float))
     a_rad = diameter_nm / 2.0
 
     Cext = np.zeros_like(lam)
     Csca = np.zeros_like(lam)
     d_corr = diameter_nm if size_correction else None
-    m_arr = gold_index(lam, d_corr, A_surf) / nm
+    m_arr = gold_index(lam, d_corr, A_surf, temperature_C=temperature_C) / nm
     for i, l0 in enumerate(lam):
         k = 2.0 * np.pi * nm / l0          # wavenumber in medium (1/nm)
         x = k * a_rad
@@ -94,18 +97,20 @@ def monomer_cross_sections(diameter_nm, wavelength_nm, n_medium="water",
     return {"ext": Cext, "sca": Csca, "abs": Cext - Csca, "wavelength": lam}
 
 
-def dipole_polarizability(diameter_nm, wavelength_nm, n_medium="water"):
+def dipole_polarizability(diameter_nm, wavelength_nm, n_medium="water",
+                          temperature_C=None, size_correction=False, A_surf=1.0):
     """Dynamic dipolar polarizability alpha(lambda) from Mie a_1.
 
     alpha = (3i / (2 k^3)) a_1, with k the medium wavenumber. This includes
     finite-size (dynamic depolarization + radiative) corrections and is
     consistent with the Mie dipole term. Units: nm^3. Vectorized over lambda.
     """
-    nm = medium_index(n_medium)
+    nm = medium_index(n_medium, temperature_C).real
     lam = np.atleast_1d(np.asarray(wavelength_nm, dtype=float))
     a_rad = diameter_nm / 2.0
     alpha = np.zeros(lam.shape, dtype=complex)
-    m_arr = gold_index(lam) / nm
+    d_corr = diameter_nm if size_correction else None
+    m_arr = gold_index(lam, d_corr, A_surf, temperature_C=temperature_C) / nm
     for i, l0 in enumerate(lam):
         k = 2.0 * np.pi * nm / l0
         x = k * a_rad

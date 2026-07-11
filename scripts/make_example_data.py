@@ -36,13 +36,19 @@ if os.path.exists(CACHE):
 else:
     backend = "cda"
     print("example data uses CDA optics (cache not found)")
-basis = species_basis(wl, D, P, GAP, "water", species=SPECIES, backend=backend, n_sizes=7)
-B = np.column_stack([basis[s] for s in SPECIES])
 kvec = np.array([K[s] for s in SPECIES], float)
 canon = lambda s: "trimer" if s.startswith("trimer") else s
 
+# per-T basis: gold eps(T) + water n(T) (limitation #11), and the cache's own
+# size_correction — matching the fitter's forward model exactly
 spectra = []
 for Tc in temps_C:
+    kw = {}
+    if os.path.exists(CACHE):
+        kw["size_correction"] = cache.size_correction
+    basis = species_basis(wl, D, P, GAP, "water", species=SPECIES,
+                          backend=backend, n_sizes=7, temperature_C=Tc, **kw)
+    B = np.column_stack([basis[s] for s in SPECIES])
     K2, K3 = association_constants(Tc + 273.15, **TH)
     gf = gold_fractions(CTOT, K2, K3)
     f = np.array([gf[canon(s)] for s in SPECIES])

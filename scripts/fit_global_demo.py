@@ -32,9 +32,8 @@ wl = np.arange(460, 700, 4.0)
 noise = 0.006
 
 # ---- synthesize the T-series (CDA backend for speed) ----
-basis = species_basis(wl, D_true, P_true, GAP, "water", species=SPECIES,
-                      backend="cda", n_sizes=7)
-B = np.column_stack([basis[s] for s in SPECIES])
+# per-T basis: gold eps(T) + water n(T), matching the fitter's forward model
+# (limitation #11 — the plasmon broadens/drops with heating on its own)
 kvec = np.array([K[s] for s in SPECIES], dtype=float)
 
 
@@ -46,6 +45,9 @@ true_frac = {s: [] for s in SPECIES}
 data = []
 A_true = 1.0
 for T in temps_K:
+    basis = species_basis(wl, D_true, P_true, GAP, "water", species=SPECIES,
+                          backend="cda", n_sizes=7, temperature_C=T - 273.15)
+    B = np.column_stack([basis[s] for s in SPECIES])
     K2, K3 = association_constants(T, **TH)
     gf = gold_fractions(C_TOT, K2, K3)
     f = np.array([gf[canon(s)] for s in SPECIES])

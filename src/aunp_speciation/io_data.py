@@ -30,6 +30,15 @@ def _parse_temperature(label):
     return float(m.group(1)) if m else None
 
 
+def water_density(temperature_C):
+    """Density of air-free water (kg/m^3), Kell 1975 polynomial (0-100 C)."""
+    t = np.asarray(temperature_C, dtype=float)
+    num = (999.83952 + 16.945176 * t - 7.9870401e-3 * t**2
+           - 46.170461e-6 * t**3 + 105.56302e-9 * t**4
+           - 280.54253e-12 * t**5)
+    return num / (1.0 + 16.879850e-3 * t)
+
+
 def load_series(path, delimiter=None, wavelength_range=(420, 800),
                 normalize=None, anchor_nm=400.0):
     """Load a spectra file. Returns (wavelength_nm, spectra, temps_K_or_None).
@@ -41,12 +50,19 @@ def load_series(path, delimiter=None, wavelength_range=(420, 800),
     instruments (see "Known limitations" #6 in CLAUDE.md).
 
     normalize (default None = no-op, keeps synthetic/pre-cleaned data as-is):
-      "mult_400nm" — multiplicative concentration normalization anchored at
-      anchor_nm: A_norm(l, T) = A(l, T) * A(anchor, T_ref) / A(anchor, T),
-      with T_ref the FIRST ext_ column in the file. At ~400 nm gold extinction
-      is interband-dominated and ~speciation-invariant, so it tracks total
-      concentration; a multiplicative scale is the Beer-Lambert-correct
-      drift correction (see README_experimental_data.md).
+      "density" — RECOMMENDED for temperature series. Multiplicative dilution
+      correction from water thermal expansion only:
+      A_norm(l, T) = A(l, T) * rho(T_ref) / rho(T), Kell (1975) density
+      polynomial, T_ref the FIRST ext_ column's temperature. No anchor
+      wavelength, no assumption about any spectral point being invariant.
+      Requires parseable temperatures in every column header.
+      "mult_400nm" — DEPRECATED / BIASED. Anchors every spectrum to equal
+      extinction at anchor_nm. Its premise (A(400) tracks concentration only)
+      is measurably violated on the C500 series: A(400) RISES +3.18% over
+      15->75 C while Kell expansion predicts -2.43%; forcing A(400)=const is a
+      flat rescale that inflates the apparent plasmon-peak change ~8.5x and
+      manufactures/destroys isosbestic structure (limitation #12). Kept for
+      reproducing old results only.
 
     ORDER IS FIXED: normalization runs FIRST (the anchor must still be in the
     array), THEN the wavelength_range clip. anchor_nm and wavelength_range are
@@ -64,10 +80,18 @@ def load_series(path, delimiter=None, wavelength_range=(420, 800),
     arr = np.array([[float(x) for x in r] for r in rows], dtype=float)
     wl = arr[:, 0]
     Y = arr[:, 1:].T  # (n_columns, n_wl)
-    if normalize is not None:
+    if normalize == "density":
+        temps_C_raw = [_parse_temperature(lbl) for lbl in header[1:]]
+        if any(t is None for t in temps_C_raw):
+            raise ValueError(
+                "normalize='density' needs a parseable temperature in every "
+                f"column header; got {header[1:]}")
+        rho = water_density(np.array(temps_C_raw))
+        Y = Y * (rho[0] / rho)[:, None]          # T_ref = first ext_ column
+    elif normalize is not None:
         if normalize != "mult_400nm":
             raise ValueError(f"unknown normalize mode: {normalize!r} "
-                             "(expected None or 'mult_400nm')")
+                             "(expected None, 'density' or 'mult_400nm')")
         if not (wl.min() <= anchor_nm <= wl.max()):
             raise ValueError(
                 f"anchor_nm={anchor_nm} nm is outside the loaded data "

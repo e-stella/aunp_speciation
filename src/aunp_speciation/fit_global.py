@@ -94,16 +94,27 @@ def _profile_linear(shapes, sca_vec, data_stack):
     return c, M @ c
 
 
-def _shapes_for(theta, wlf, species, gap, med, temps, C_tot, backend, n_sizes):
-    """Build the (nT, nwl) model-shape matrix (before global amplitude)."""
+def _shapes_for(theta, wlf, species, gap, med, temps, C_tot, backend, n_sizes,
+                eps_temperature=True, size_correction=False):
+    """Build the (nT, nwl) model-shape matrix (before global amplitude).
+
+    eps_temperature=True gives EACH temperature its own basis with gold
+    eps(T) + water n(T) (limitations #11/#13) — the plasmon broadens/drops
+    with heating even at fixed populations. False = legacy shared basis.
+    """
     D, p, dH2, dS2, dH3, dS3 = theta
-    basis = species_basis(wlf, D, p, gap, med, species=species,
-                          backend=backend, n_sizes=n_sizes)
-    B = np.column_stack([basis[s] for s in species])   # (nwl, nspec)
     k = np.array([_K[s] for s in species], dtype=float)
     shapes = np.zeros((len(temps), len(wlf)))
     fracs = {s: np.zeros(len(temps)) for s in species}
+    B = None
     for i, T in enumerate(temps):
+        if eps_temperature or B is None:
+            tc = (float(T) - 273.15) if eps_temperature else None
+            basis = species_basis(wlf, D, p, gap, med, species=species,
+                                  backend=backend, n_sizes=n_sizes,
+                                  temperature_C=tc,
+                                  size_correction=size_correction)
+            B = np.column_stack([basis[s] for s in species])   # (nwl, nspec)
         K2, K3 = association_constants(T, dH2, dS2, dH3, dS3)
         gf = gold_fractions(C_tot, K2, K3)
         f = np.array([gf[_canon(s)] for s in species])
@@ -134,10 +145,17 @@ def fit_temperature_series(
     bounds=None,
     fit_stride=1,
     max_nfev=80,
+    eps_temperature=True,
+    size_correction=False,
 ):
     """Jointly fit spectra measured at several temperatures. Returns GlobalFitResult.
 
     spectra: (nT, nwl) array aligned with temps_K and wavelength_nm.
+    eps_temperature (default True): per-temperature basis with gold eps(T) and
+    water n(T) — limitation #11. Set False only to reproduce legacy fixed-eps
+    fits. size_correction: include gamma_S in the basis (limitation #2);
+    REQUIRED for quantitative eps(T) attribution (without it the basis
+    over-responds to T ~3x) — must match the cache when using a cached backend.
     """
     temps = np.asarray(temps_K, dtype=float)
     wl = np.asarray(wavelength_nm, dtype=float)
@@ -167,7 +185,8 @@ def fit_temperature_series(
 
     def residual(theta):
         shapes, _ = _shapes_for(theta[:6], wlf, species, gap_nm, n_medium,
-                                temps, C_tot, backend, n_sizes)
+                                temps, C_tot, backend, n_sizes,
+                                eps_temperature, size_correction)
         sca_vec = _sca_shape(wlf, theta[6])
         _, model_stack = _profile_linear(shapes, sca_vec, data_stack)
         return model_stack - data_stack
@@ -177,7 +196,8 @@ def fit_temperature_series(
                         diff_step=3e-3, max_nfev=max_nfev)
     theta = res.x
     shapes, fracs = _shapes_for(theta[:6], wlf, species, gap_nm, n_medium,
-                                temps, C_tot, backend, n_sizes)
+                                temps, C_tot, backend, n_sizes,
+                                eps_temperature, size_correction)
     sca_vec = _sca_shape(wlf, theta[6])
     c, model_stack = _profile_linear(shapes, sca_vec, data_stack)
     A, a_sca = float(c[0]), c[1:]

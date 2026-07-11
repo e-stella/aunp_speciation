@@ -36,23 +36,32 @@ def available():
 
 
 def cluster_cross_section_tmatrix(positions, diameter_nm, wavelength_nm,
-                                  n_medium="water", lmax=8):
-    """Exact orientation-averaged extinction (nm^2) per cluster via treams."""
+                                  n_medium="water", lmax=8, temperature_C=None,
+                                  size_correction=False, A_surf=1.0):
+    """Exact orientation-averaged extinction (nm^2) per cluster via treams.
+
+    temperature_C: gold eps(T) + water n(T); None = 20 C reference (no-op).
+    size_correction: give each sphere the surface-damped (gamma_S) gold eps."""
     if not _HAVE_TREAMS:
         raise RuntimeError(
             "treams not importable in this interpreter; use the mstm-env venv."
         )
-    nmed = medium_index(n_medium)
+    nmed = medium_index(n_medium, temperature_C).real
     lam = np.atleast_1d(np.asarray(wavelength_nm, dtype=float))
     radius = diameter_nm / 2.0
     positions = np.asarray(positions, dtype=float)
     positions = positions - positions.mean(axis=0)  # center for global expansion
     mat_med = treams.Material(nmed**2)
 
+    from .dielectric import gold_epsilon_sized
     Cext = np.zeros(lam.shape)
     for i, l0 in enumerate(lam):
         k0 = 2.0 * np.pi / l0
-        mat_au = treams.Material(complex(gold_epsilon(l0)))
+        if size_correction:
+            eps_au = gold_epsilon_sized(l0, diameter_nm, A_surf, temperature_C)
+        else:
+            eps_au = gold_epsilon(l0, temperature_C=temperature_C)
+        mat_au = treams.Material(complex(eps_au))
         sphere = treams.TMatrix.sphere(lmax, k0, radius, [mat_au, mat_med])
         if len(positions) == 1:
             Cext[i] = sphere.xs_ext_avg
@@ -67,8 +76,11 @@ def cluster_cross_section_tmatrix(positions, diameter_nm, wavelength_nm,
 
 
 def species_spectrum_tmatrix(species, diameter_nm, wavelength_nm,
-                             gap_nm=1.0, n_medium="water", lmax=8):
+                             gap_nm=1.0, n_medium="water", lmax=8,
+                             temperature_C=None, size_correction=False,
+                             A_surf=1.0):
     """Per-cluster orientation-averaged extinction for a named species (exact)."""
     pos = GEOMETRIES[species](diameter_nm, gap_nm)
     return cluster_cross_section_tmatrix(pos, diameter_nm, wavelength_nm,
-                                         n_medium, lmax)
+                                         n_medium, lmax, temperature_C,
+                                         size_correction, A_surf)

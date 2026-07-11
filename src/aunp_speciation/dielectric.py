@@ -165,71 +165,211 @@ def _load_bb():
     return _BB_TABLE
 
 
-def gold_epsilon(wavelength_nm, model=None):
+def gold_epsilon(wavelength_nm, model=None, temperature_C=None):
     """Complex relative permittivity of gold at vacuum wavelength(s) in nm.
 
     model overrides the module default set by use_gold_model().
+    temperature_C (default None = T_REF_C = 20 C, a mathematical no-op) adds
+    the bulk thermal Drude-damping correction (limitation #11): every base
+    dataset is tabulated/fitted near room T; heating is applied as a delta on
+    top. See thermal_damping_correction.
     """
     lam = np.asarray(wavelength_nm, dtype=float)
     m = model or _GOLD_MODEL
     if m == "bb":
         wl_t, eps_t = _load_bb()
-        return np.interp(lam, wl_t, eps_t.real) + 1j * np.interp(lam, wl_t, eps_t.imag)
-    if m == "jc":
+        eps = np.interp(lam, wl_t, eps_t.real) + 1j * np.interp(lam, wl_t, eps_t.imag)
+    elif m == "jc":
         nk = _jc_spline()(lam)
-        return (nk[0] + 1j * nk[1])**2
-    if m in ("yakubovsky25", "yakubovsky53"):
+        eps = (nk[0] + 1j * nk[1])**2
+    elif m in ("yakubovsky25", "yakubovsky53"):
         nk = _yk_spline(m[-2:])(lam)
-        return (nk[0] + 1j * nk[1])**2
-    if m == "yakubovsky":
+        eps = (nk[0] + 1j * nk[1])**2
+    elif m == "yakubovsky":
         use_gold_model(m)  # raises with the size-matching guidance
-    return _gold_epsilon_etchegoin(lam)
+    else:
+        eps = _gold_epsilon_etchegoin(lam)
+    if temperature_C is not None and temperature_C != T_REF_C:
+        eps = eps + thermal_damping_correction(lam, temperature_C)
+    return eps
 
 
-# --- small-particle surface-scattering damping correction ---
-# For ~12 nm NPs the electron mean free path is cut by the surface, adding
-# damping Gamma_size = A * hbar * v_F / R to the Drude term. This broadens and
-# damps the LSPR and is significant at 12 nm. (ref 15 stresses that the imaginary
-# part of eps, i.e. damping, dominates size-distribution fit accuracy — and that
-# tabulated constants from thin-film studies, e.g. Yakubovsky 2017, generalize
-# best for colloidal Au. Prefer swapping in such tabulated eps for production;
-# this analytic correction is the lightweight prototype path.)
-_OMEGA_P_EV = 9.0        # gold plasma energy (eV)
-_GAMMA_BULK_EV = 0.07    # bulk Drude damping (eV)
+# --- Drude damping corrections: size (T-independent) + temperature (bulk) ----
+# The plasmon relaxation rate decomposes (Chetoui et al. 2026; lit-map §G) as
+#     gamma(T) = gamma_bulk(T) + gamma_S,
+# where gamma_bulk is the BULK electron-phonon damping (strongly T-dependent)
+# and gamma_S = A*hbar*v_F/R is the size/surface (Landau) damping —
+# EXPLICITLY temperature-independent. Keep the two separable: do NOT import a
+# monolithic "nanoparticle eps(T)" (it would carry someone else's gamma_S and
+# environment; gamma_S scales 1/R).
+#
+# Drude baseline (Olmon et al., PRB 86, 235147 (2012), single-crystal Au;
+# AOT 2022 ellipsometry review): hbar*omega_p = 8.45 eV, gamma_bulk(RT) =
+# 44 meV. (Previously 9.0 eV / 70 meV generic textbook values — updated;
+# affects only the size-corrected path, which is off by default in fits.)
+#
+# gamma_bulk(T): Holstein electron-phonon form endorsed and used by Reddy,
+# Guler, Kildishev, Boltasseva & Shalaev, Opt. Mater. Express 6, 2776 (2016)
+# ["Temperature-dependent optical properties of gold thin films" — measured
+# Drude+2CP fits 23-500 C; their single-crystal 200 nm film gives
+# Gamma_D = 0.0534 eV (23 C) -> 0.0898 eV (500 C)]:
+#     gamma_ep(T) = gamma_0 * [ 2/5 + 4 (T/Th)^5 * Int_0^{Th/T} z^4/(e^z-1) dz ],
+# Th = Debye temperature of gold = 170 K. Near room T this slope
+# (~1.2e-4 eV/K anchored at 44 meV) matches Reddy's measured first-cycle
+# single-crystal slope (~1.1e-4 eV/K) to ~12%. We implement the full integral
+# (not the high-T limit) and anchor at gamma_bulk(20 C) = 44 meV.
+#
+# The correction is applied as a RETUNE of the Drude damping on top of any
+# base dataset: delta_eps = omega_p^2 * [inv(gamma_ref) - inv(gamma_new)],
+# inv(g) = 1/(E^2 + iEg). To leading order in the visible (E >> gamma) this is
+# ~ +i * omega_p^2 * (gamma_new - gamma_ref)/E^3 — i.e. the delta depends on
+# the CHANGE in damping and only weakly on the assumed reference, so it
+# composes cleanly with tabulated bases (jc/yakubovsky) whose internal gamma
+# is not exactly 44 meV.
+_OMEGA_P_EV = 8.45       # gold Drude plasma energy (eV) — Olmon 2012
+_GAMMA_BULK_EV = 0.044   # bulk Drude damping at T_REF (eV) — Olmon 2012
 _HBAR_VF_EVNM = 0.922    # hbar * v_F in eV*nm  (v_F = 1.40e6 m/s)
+_THETA_D_K = 170.0       # Debye temperature of gold (K) — Reddy 2016
+T_REF_C = 20.0           # reference: tabulated datasets are ~room-T
+EPS_T_MODEL = "holstein170K-olmon44meV"   # recorded by basis caches
+
+
+def _holstein_factor(T_K):
+    """Holstein e-ph damping shape f(T) = 2/5 + 4 (T/Th)^5 Int_0^{Th/T} z^4/(e^z-1) dz."""
+    T_K = float(T_K)
+    x_D = _THETA_D_K / T_K
+    z = np.linspace(1e-9, x_D, 400)
+    trapz = getattr(np, "trapezoid", None) or np.trapz  # numpy<2 compat (mstm-env)
+    integral = trapz(z**4 / np.expm1(z), z)
+    return 0.4 + 4.0 * (T_K / _THETA_D_K) ** 5 * integral
+
+
+_F_REF = None  # lazy _holstein_factor(T_REF)
+
+
+def gamma_bulk_ev(temperature_C=None):
+    """Bulk electron-phonon Drude damping (eV) at temperature_C.
+
+    temperature_C=None means the reference (20 C) -> exactly _GAMMA_BULK_EV.
+    Holstein form, Debye Th=170 K, anchored to 44 meV at 20 C (see module
+    comment; Reddy 2016 / Olmon 2012). If the Reddy measured Drude table is
+    preferred over the theory curve, swap here — near 15-75 C they agree to
+    ~12% in slope.
+    """
+    if temperature_C is None or temperature_C == T_REF_C:
+        return _GAMMA_BULK_EV
+    global _F_REF
+    if _F_REF is None:
+        _F_REF = _holstein_factor(T_REF_C + 273.15)
+    return _GAMMA_BULK_EV * _holstein_factor(temperature_C + 273.15) / _F_REF
+
+
+def _drude_damping_delta(wavelength_nm, gamma_new_ev):
+    """Delta-eps that retunes the Drude damping from _GAMMA_BULK_EV to gamma_new_ev."""
+    E = 1239.84 / np.asarray(wavelength_nm, dtype=float)   # photon energy (eV)
+    inv = lambda g: 1.0 / (E**2 + 1j * E * g)
+    return _OMEGA_P_EV**2 * (inv(_GAMMA_BULK_EV) - inv(gamma_new_ev))
 
 
 def size_damping_correction(wavelength_nm, diameter_nm, A_surf=1.0):
-    """Delta-epsilon added to bulk eps for surface-scattering damping."""
-    E = 1239.84 / np.asarray(wavelength_nm, dtype=float)   # photon energy (eV)
-    R = diameter_nm / 2.0                                  # radius (nm)
-    g_size = A_surf * _HBAR_VF_EVNM / R
-    inv = lambda g: 1.0 / (E**2 + 1j * E * g)
-    return _OMEGA_P_EV**2 * (inv(_GAMMA_BULK_EV) - inv(_GAMMA_BULK_EV + g_size))
+    """Delta-epsilon added to bulk eps for surface-scattering damping
+    (gamma_S = A*hbar*v_F/R — temperature-INDEPENDENT)."""
+    g_size = A_surf * _HBAR_VF_EVNM / (diameter_nm / 2.0)
+    return _drude_damping_delta(wavelength_nm, _GAMMA_BULK_EV + g_size)
 
 
-def gold_epsilon_sized(wavelength_nm, diameter_nm, A_surf=1.0):
-    """Size-corrected gold permittivity for a given primary-particle diameter."""
-    return gold_epsilon(wavelength_nm) + size_damping_correction(
-        wavelength_nm, diameter_nm, A_surf)
+def thermal_damping_correction(wavelength_nm, temperature_C):
+    """Delta-epsilon for BULK heating: gamma_bulk(T_REF) -> gamma_bulk(T).
+
+    Zero at T_REF_C by construction. This is limitation #11's fix: heating
+    raises eps2 -> the plasmon broadens, drops and redshifts with NO
+    aggregation. Implemented from electron-phonon theory (Holstein, Th=170 K)
+    anchored at Olmon's 44 meV — NOT from a fitted eps(T) table; stated
+    explicitly per the task spec. Validated against Reddy 2016's measured
+    Drude broadening slope (~12% agreement near room T).
+    """
+    return _drude_damping_delta(wavelength_nm, gamma_bulk_ev(temperature_C))
 
 
-def gold_index(wavelength_nm, diameter_nm=None, A_surf=1.0):
-    """Complex refractive index n + ik of gold.
+def gold_epsilon_sized(wavelength_nm, diameter_nm, A_surf=1.0,
+                       temperature_C=None):
+    """Size- and temperature-corrected gold permittivity.
 
-    If diameter_nm is given, applies the small-particle damping correction.
+    Single retune with gamma_new = gamma_bulk(T) + gamma_S — the correct
+    composition (the two deltas are NOT additive; inv() is nonlinear).
+    """
+    g_size = A_surf * _HBAR_VF_EVNM / (diameter_nm / 2.0)
+    g_new = gamma_bulk_ev(temperature_C) + g_size
+    return gold_epsilon(wavelength_nm) + _drude_damping_delta(wavelength_nm, g_new)
+
+
+def gold_index(wavelength_nm, diameter_nm=None, A_surf=1.0,
+               temperature_C=None):
+    """Complex refractive index n + ik of gold at temperature_C.
+
+    If diameter_nm is given, applies the (T-independent) small-particle
+    damping correction on top of the thermal one.
     """
     if diameter_nm is None:
-        return np.sqrt(gold_epsilon(wavelength_nm))
-    return np.sqrt(gold_epsilon_sized(wavelength_nm, diameter_nm, A_surf))
+        return np.sqrt(gold_epsilon(wavelength_nm, temperature_C=temperature_C))
+    return np.sqrt(gold_epsilon_sized(wavelength_nm, diameter_nm, A_surf,
+                                      temperature_C))
 
 
-# Non-dispersive media (good enough over 400-800 nm)
-WATER_N = 1.333
+# --- media ---------------------------------------------------------------
+WATER_N = 1.333          # legacy fixed value (~22 C, 589 nm)
 GLYCEROL_N = 1.47
 
+# Water n(T) at 589 nm (CRC Handbook); dn/dT dispersion across 420-800 nm is
+# small (<10% of dn/dT) and neglected. n falls ~1.3334 (15 C) -> ~1.3240 (75 C):
+# a BLUE shift of the plasmon on heating — opposite in sign to the observed
+# red-shift (limitation #13: ignoring it MASKS part of the real signal).
+_WATER_N_T = np.array([
+    (10, 1.33369), (15, 1.33339), (20, 1.33299), (25, 1.33251), (30, 1.33192),
+    (40, 1.33051), (50, 1.32894), (60, 1.32718), (70, 1.32511), (80, 1.32287),
+])
 
-def medium_index(name_or_value="water"):
-    if isinstance(name_or_value, (int, float)):
-        return float(name_or_value)
-    return {"water": WATER_N, "glycerol": GLYCEROL_N, "vacuum": 1.0}[name_or_value]
+# Water absorption k(lambda), 400-900 nm. Sources: Pope & Fry, Appl. Opt. 36,
+# 8710 (1997) for 400-700 nm; Hale & Querry, Appl. Opt. 12, 555 (1973) above
+# 700 nm (the ~740-760 nm O-H overtone bump seen in the blank scans).
+# k = a*lambda/(4*pi); values are ~1e-10..5e-7 — utterly negligible for the
+# PARTICLE cross sections (and blank-referenced spectra cancel the bulk path
+# absorption), but tabulated here so the blank/reference channel can be
+# modeled. NOT wired into Mie: an absorbing host makes the extinction cross
+# section ill-defined (active research); use for diagnostics only.
+_WATER_K = np.array([
+    (400, 2.11e-10), (450, 3.30e-10), (500, 8.12e-10), (550, 2.47e-9),
+    (600, 1.06e-8), (650, 1.76e-8), (700, 3.48e-8), (725, 8.7e-8),
+    (750, 1.56e-7), (775, 1.48e-7), (800, 1.25e-7), (850, 2.93e-7),
+    (900, 4.86e-7),
+])
+
+
+def water_index_T(temperature_C):
+    """Real refractive index of water vs temperature (CRC 589 nm table)."""
+    t, n = _WATER_N_T.T
+    return float(np.interp(temperature_C, t, n))
+
+
+def water_k(wavelength_nm):
+    """Imaginary index k of water (tabulated, 400-900 nm; see _WATER_K note)."""
+    wl_t, k_t = _WATER_K.T
+    return np.interp(np.asarray(wavelength_nm, dtype=float), wl_t, k_t)
+
+
+def medium_index(name_or_value="water", temperature_C=None):
+    """Refractive index of the medium, as a COMPLEX number.
+
+    - numeric input: returned as complex(value) (back-compat pass-through).
+    - "water": real part from the CRC n(T) table when temperature_C is given
+      (default None -> legacy fixed 1.333); imaginary part 0 — water's k(λ)
+      is available separately via water_k() (see _WATER_K for why it is not
+      folded into the particle optics).
+    Callers doing propagation math should take .real explicitly.
+    """
+    if isinstance(name_or_value, (int, float, complex)):
+        return complex(name_or_value)
+    if name_or_value == "water" and temperature_C is not None:
+        return complex(water_index_T(temperature_C))
+    return complex({"water": WATER_N, "glycerol": GLYCEROL_N,
+                    "vacuum": 1.0}[name_or_value])

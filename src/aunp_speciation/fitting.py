@@ -62,10 +62,13 @@ class FitResult:
     n_sca: float = np.nan
 
 
-def _build_basis_matrix(wl, D, p, gap, med, species, backend, n_sizes):
+def _build_basis_matrix(wl, D, p, gap, med, species, backend, n_sizes,
+                        temperature_C=None, size_correction=False):
     """(n_wl, n_species) matrix of per-cluster species spectra."""
     basis = species_basis(wl, D, p, gap, med, species=species,
-                          backend=backend, n_sizes=n_sizes)
+                          backend=backend, n_sizes=n_sizes,
+                          temperature_C=temperature_C,
+                          size_correction=size_correction)
     return np.column_stack([basis[s] for s in species])
 
 
@@ -82,8 +85,15 @@ def fit_spectrum(
     fit_stride=2,
     backend="cda",
     n_sizes=7,
+    temperature_C=None,
+    size_correction=False,
 ):
     """Fit an extinction spectrum. Returns a FitResult.
+
+    temperature_C: the temperature the spectrum was measured at (gold eps(T) +
+    water n(T), limitations #11/#13); None = 20 C reference.
+    size_correction: include gamma_S in the basis (limitation #2); must match
+    the cache when backend is a cached interpolator.
 
     fit_stride subsamples the wavelength grid for speed during optimization
     (the CDA cluster solve is the cost); the returned model is on that grid.
@@ -102,7 +112,8 @@ def fit_spectrum(
     def weights_for(theta):
         D, p, n_sca = theta
         B = _build_basis_matrix(wlf, D, p, gap_nm, n_medium, species,
-                                backend, n_sizes)
+                                backend, n_sizes, temperature_C,
+                                size_correction)
         # extra non-negative column: the scattering pedestal (amplitude linear,
         # profiled with the species weights; only the exponent is nonlinear)
         B = np.column_stack([B, _sca_shape(wlf, n_sca)])

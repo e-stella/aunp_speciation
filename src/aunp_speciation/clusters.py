@@ -58,15 +58,20 @@ def _green_tensor(r_vec, k):
     return np.exp(1j * k * r) / r * (term1 + term2)
 
 
-def cluster_cross_section(positions, diameter_nm, wavelength_nm, n_medium="water"):
+def cluster_cross_section(positions, diameter_nm, wavelength_nm, n_medium="water",
+                          temperature_C=None, size_correction=False, A_surf=1.0):
     """Orientation-averaged extinction cross section (nm^2) per cluster.
 
     positions: (N,3) sphere centers in nm. Vectorized over wavelength.
+    temperature_C: gold eps(T) + water n(T); None = 20 C reference (no-op).
+    size_correction: apply the (T-independent) surface-damping gamma_S to each
+    sphere's polarizability.
     """
-    nm = medium_index(n_medium)
+    nm = medium_index(n_medium, temperature_C).real
     lam = np.atleast_1d(np.asarray(wavelength_nm, dtype=float))
     N = len(positions)
-    alpha = dipole_polarizability(diameter_nm, lam, n_medium)  # (nwl,)
+    alpha = dipole_polarizability(diameter_nm, lam, n_medium, temperature_C,
+                                  size_correction, A_surf)  # (nwl,)
 
     Cext = np.zeros(lam.shape)
     for iw, l0 in enumerate(lam):
@@ -94,7 +99,10 @@ def cluster_cross_section(positions, diameter_nm, wavelength_nm, n_medium="water
     return Cext
 
 
-def species_spectrum(species, diameter_nm, wavelength_nm, gap_nm=1.0, n_medium="water"):
+def species_spectrum(species, diameter_nm, wavelength_nm, gap_nm=1.0,
+                     n_medium="water", temperature_C=None,
+                     size_correction=False, A_surf=1.0):
     """Per-cluster orientation-averaged extinction spectrum for a named species."""
     pos = GEOMETRIES[species](diameter_nm, gap_nm)
-    return cluster_cross_section(pos, diameter_nm, wavelength_nm, n_medium)
+    return cluster_cross_section(pos, diameter_nm, wavelength_nm, n_medium,
+                                 temperature_C, size_correction, A_surf)

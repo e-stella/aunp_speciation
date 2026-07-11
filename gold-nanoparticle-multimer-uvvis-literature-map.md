@@ -227,13 +227,39 @@ the opposite of the pedestal's behavior. Note the *laser-driven* plasmonic-nanob
 literature is a different regime entirely (particle superheated far above the bulk
 liquid) and must not be conflated with mild bulk heating to 75 °C.
 
-**⇒ What remains:** a genuine, nanoparticle-derived, reversible population of
-scatterers **comparable to or larger than the wavelength** (≳ several hundred nm).
-Not the dimers/trimers being speciated — a distinct, larger channel. Small clusters
-shape 520–600 nm; this population makes the far-red floor.
-**Decisive next test is experimental, not more fitting:** DLS across the temperature
-ramp (does µm-scale material appear reversibly on heating?), and/or a
-filtered/centrifuged control (does the pedestal survive removal of large material?).
+**(e) MEASURED — γ(T) IS IN THE MODEL — BUT ⚠️ THE FIT VERDICTS BELOW ARE
+PROVISIONAL: the Kell density normalization they rest on is blind to a measured
+~5.6% evaporation over the run (CLAUDE.md #14), whose wavelength-flat, T-growing
+signature is degenerate with the "flat pedestal" and with the speciation-collapse
+and no-isosbestic conclusions. Re-decide after an evaporation-aware concentration
+term.** ε(λ,T) is
+implemented (bulk Holstein γ_bulk(T), Θ_D=170 K, anchored at Olmon 44 meV; γ_S kept
+T-independent per Chetoui; see CLAUDE.md #11). Measured at D = 12.9 nm, 15→75 °C
+(observed: peak −2.7%, @700 +15.6%, @790 +19.1%):
+
+| feature | γ(T), γ_S in basis | γ(T), no γ_S | water n(T) alone | observed |
+|---|---|---|---|---|
+| peak height | −1.3% | −1.7% | −2.9% | −2.7% |
+| @700 nm | +3.7% | +10.5% | −1.1% | +15.6% |
+| @790 nm | +3.8% | +10.9% | −1.0% | +19.1% |
+
+The napkin's "~40% of everything" was directionally right; the exact share hinges on
+the γ_S dilution it identified (γ_bulk rises 20% over the ramp by Holstein — more than
+the ~12.6% first assumed). **Gold ε(T) + water n(T) together cover the entire observed
+peak drop** before any speciation change.
+**RE-FIT VERDICT (both branches, density normalization, exact γ_S basis):** ΔH₂
+collapses to ≈0, the aggregated fraction goes ~T-flat (0.10–0.25, branch-dependent,
+weakly identified), **the thermally-driven speciation signal essentially vanishes**,
+and the 575 nm isosbestic does not exist in the speciation residual (no common
+zero-crossing; it was a mult_400nm normalization artifact). The pedestal SURVIVES but
+becomes exactly FLAT (n_sca 0.73→0.00) at 0.13–0.17 of peak, growing +31% over the
+ramp reversibly — consistent with µm-scale flocs (0.7–1 µm Maxwell-Garnett–Mie
+spheres reproduce the flat shape unimposed) and/or the known static instrumental
+floor, with the T-growth being particle-derived (blanks are T-flat).
+**Honest model-selection caveat: ε(T)-ON and ε(T)-OFF fits tie on RMS** (0.0166 vs
+0.0164) — ε(T) is in the model because bulk gold measurably does this (Reddy), not
+because the fit prefers it. Remaining decisive test: DLS across the ramp / a
+filtered control (fitting cannot distinguish flocs from stray light).
 
 ### Dataset 2 — CTAC size series
 Irina; 5 samples, TEM 7.8 / 29.2 / 31.5 / 37.9 / 42.0 nm, 4–9% polydispersity, single
@@ -297,6 +323,44 @@ worth knowing. Lead with the hydrophobicity argument and the in-house blank cont
 
 ---
 
-*Access status (2026-07-10): refs 7, 14, 17, 18, 19, 20 reviewed in full; refs 21-25 (nanobubble section F) consulted via search snippets, not full text
-(ref 14 Haiss and ref 18 gold-permittivity paper now obtained and read).
+---
+
+## G. Temperature dependence of gold's own permittivity — RESOLVED (implemented)
+
+The model assumed ε_Au was temperature-independent. It is not. This section was
+load-bearing and its prediction held: ε(λ,T) is now implemented (bulk Holstein
+γ_bulk(T) anchored at Olmon 44 meV + T-independent γ_S, exactly the decomposition
+below), and with it (plus water n(T)) the thermally-driven speciation signal in the
+C500 fits collapses — see exclusion (e) above and CLAUDE.md #11 for the measured
+verdict.
+
+26. **Chetoui, Grumm, Lemke, Knorr & Lange, "Electron- and Lattice-Temperature Dependence of the Optical Response of Gold Nanoparticles," 2026.** — *(in project, read)* **The structural reference.** Solves momentum-resolved Boltzmann–Bloch equations for temperature-dependent AuNP absorption, confirmed with steady-state + transient experiments. **Key result for us — the damping decomposes as**
+    **γ(T_e, T_l) = γ^(ep)(T_e, T_l) + γ_S**, with γ_S = 3ℏk_F/(4Rmc) the surface/Landau damping, "introduced here on a phenomenological basis as **temperature-independent** parameter."
+    ⇒ **All the T-dependence lives in the BULK electron–phonon term; the nanoparticle-specific (size) term is T-independent.** They are additive and separable.
+    Steady-state observation: with rising equilibrium temperature the plasmon peak (~550 nm) **redshifts, broadens, and decreases in amplitude**, because heating increases electron–phonon scattering → larger ε₂ (broadening + lower peak), while the change in ε₁ shifts the resonance to lower energy (redshift).
+    ⚠️ **Caveats for transfer to our system:** their AuNP are **40 nm**, **spin-coated dry onto glass** in a cryostat (Oxford CryostatN) — not colloid in water; and their range is **200–295 K**, i.e. it *stops at room temperature*, entirely BELOW our 288–348 K ramp. The mechanism transfers; the magnitude at 75 °C is an extrapolation beyond their data.
+
+27. **Reddy, Guler, Kildishev, Boltasseva & Shalaev, "Temperature-dependent optical properties of gold thin films," *Opt. Mater. Express* 6, 2776–2802 (2016).** — *(author list now VERIFIED; open-access full text read)* **The quantitative ε(λ,T) source — implemented (as validation).** The real part of ε changes only marginally with temperature; **the imaginary part changes drastically** — for 200-nm-thick single- and polycrystalline Au films, ε₂ at 500 °C is **nearly twice** its room-temperature value. Provides **experimentally fitted Drude + two-critical-point oscillator models for ε(T)**: single-crystal 200 nm Γ_D = 0.0534 eV (23 °C) → 0.0898 eV (500 °C); endorses the Holstein e–ph form 1/τ = 1/τ₀·[2/5 + T/θ] with θ_D = 170 K. States explicitly that the increased ε₂ at elevated temperature **reduces the LSPR quality factor for a spherical particle**. Implementation here uses the full Holstein integral anchored at Olmon's 44 meV — its near-RT slope (~1.2e-4 eV/K) matches Reddy's measured single-crystal slope (~1.1e-4 eV/K) to ~12%.
+    ⚠️ **Caveats:** thinner films (30–50 nm) behave *differently* — ε₂ can increase OR decrease over the same range, reaching 3–4× at 500 °C — so film thickness matters and transferability is not automatic. Their range starts at 23 °C; our 15 °C point is slightly below (Holstein handles it smoothly).
+    https://opg.optica.org/ome/fulltext.cfm?uri=ome-6-9-2776 (also arXiv:1604.00064)
+
+28. **Olmon et al., "Optical dielectric function of gold," *Phys. Rev. B* 86, 235147 (2012).** — Precise ellipsometry on evaporated / template-stripped / single-crystal gold, 300 nm–25 µm. Drude fit: **ħω_p = 8.45 eV, τ_D = 14 ± 3 fs**. Source of the Drude parameters used in the impact estimate above. Also notes inter-sample variation is small compared with the spread across the literature — relevant to ref 18's ε-choice problem. https://journals.aps.org/prb/abstract/10.1103/PhysRevB.86.235147
+
+29. **"Spectroscopic ellipsometry from 10 to 700 K," *Adv. Optical Technologies* (2022).** — Review. For metals, **the T-dependence of the Drude term is dominated by the broadening parameter**, which increases with temperature (the same physics as the rise in resistivity). Room-temperature Drude broadening for single-crystal Au: **44 meV**. Used as γ_bulk above. https://www.degruyterbrill.com/document/doi/10.1515/aot-2022-0016/html
+
+**Implementation note (the decomposition matters).** Do **NOT** seek "nanoparticle ε(T)".
+Use **bulk ε(T)** (ref 27) **+ the existing size-dependent surface damping** (γ_S, kept
+T-independent per ref 26). Reasons: (a) a nanoparticle's ε is not directly measurable —
+any "NP ε(T)" is model-inferred, importing someone else's assumptions; (b) γ_S ∝ 1/R, so
+a 40 nm particle's combined ε(T) carries a γ_S ~3× smaller than a 13 nm particle's;
+(c) ref 26's particles are dry on glass, not colloid in water. The bulk + size-correction
+recipe is both correct and transferable — including to the planned ~60 nm work.
+
+---
+
+*Access status (2026-07-11): refs 7, 14, 17, 18, 19, 20, 26 reviewed in full;
+ref 27 (Reddy ε(λ,T)) now read from the open-access Optica full text — author list
+verified (Reddy, Guler, Kildishev, Boltasseva, Shalaev) and the Drude(T) tables +
+Holstein form extracted; refs 28-29 from search snippets; refs 21-25 (nanobubble
+section F) consulted via search snippets, not full text.
 Remaining summaries rely on abstracts + open-access sources.*

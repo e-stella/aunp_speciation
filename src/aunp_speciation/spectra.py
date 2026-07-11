@@ -47,34 +47,56 @@ def gaussian_sizes(mean_nm, pct_polydispersity, n=15):
     return ds, w
 
 
-def monomer_polydisperse(wavelength_nm, mean_nm, pct_poly, n_medium="water"):
-    """Monomer extinction averaged over a Gaussian size distribution."""
+def monomer_polydisperse(wavelength_nm, mean_nm, pct_poly, n_medium="water",
+                         temperature_C=None, size_correction=False, A_surf=1.0):
+    """Monomer extinction averaged over a Gaussian size distribution.
+
+    With size_correction=True each size d in the integral gets its own
+    surface-damped eps (gamma_S = A*hbar*v_F/(d/2)) — limitation #2's fix.
+    """
     ds, w = gaussian_sizes(mean_nm, pct_poly)
     total = np.zeros_like(np.asarray(wavelength_nm, dtype=float))
     for d, wi in zip(ds, w):
-        total += wi * monomer_cross_sections(d, wavelength_nm, n_medium)["ext"]
+        total += wi * monomer_cross_sections(d, wavelength_nm, n_medium,
+                                             size_correction=size_correction,
+                                             A_surf=A_surf,
+                                             temperature_C=temperature_C)["ext"]
     return total
 
 
 def species_basis(wavelength_nm, mean_nm, pct_poly, gap_nm=1.0, n_medium="water",
                   species=("monomer", "dimer", "trimer_linear", "trimer_triangular"),
-                  backend="cda", n_sizes=7):
+                  backend="cda", n_sizes=7, temperature_C=None,
+                  size_correction=False, A_surf=1.0):
     """Per-cluster extinction spectra for each species (polydispersity applied).
 
     backend selects the optics engine ('cda' fast, 'tmatrix' exact/slower).
     Polydispersity is applied exactly to the monomer and approximately to the
     clusters by averaging over the size distribution.
+    temperature_C threads gold eps(T) (limitation #11) and water n(T) (#13)
+    through every species; None = the 20 C reference (identical to the old
+    fixed-eps behavior). For a temperature SERIES, call once per T.
+    size_correction adds the T-INDEPENDENT surface damping gamma_S to every
+    size and species (limitation #2). IMPORTANT for eps(T) fits: without
+    gamma_S the basis over-responds to temperature ~3x (measured: @700 nm
+    +10.5% vs the physical +3.7% over 15->75 C), inflating what the fit
+    attributes to gold heating.
     """
     species_fn = _get_species_fn(backend)
     basis = {}
     for sp in species:
         if sp == "monomer":
-            basis[sp] = monomer_polydisperse(wavelength_nm, mean_nm, pct_poly, n_medium)
+            basis[sp] = monomer_polydisperse(wavelength_nm, mean_nm, pct_poly,
+                                             n_medium, temperature_C,
+                                             size_correction, A_surf)
         else:
             ds, w = gaussian_sizes(mean_nm, pct_poly, n=n_sizes)
             acc = np.zeros_like(np.asarray(wavelength_nm, dtype=float))
             for d, wi in zip(ds, w):
-                acc += wi * species_fn(sp, d, wavelength_nm, gap_nm, n_medium)
+                acc += wi * species_fn(sp, d, wavelength_nm, gap_nm, n_medium,
+                                       temperature_C=temperature_C,
+                                       size_correction=size_correction,
+                                       A_surf=A_surf)
             basis[sp] = acc
     return basis
 

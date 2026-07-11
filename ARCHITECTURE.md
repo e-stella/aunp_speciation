@@ -29,13 +29,51 @@ The code is organised in three conceptual layers:
 **Idea.** Everything optical starts from the metal's complex permittivity
 ε(λ) = ε₁ + iε₂ (equivalently the refractive index n + ik). ε₁ controls where the
 plasmon resonance sits; ε₂ (the imaginary/absorptive part) controls how broad and
-damped it is. We use an analytic Drude + two-interband-term fit to gold
-(fast, no data files), with an optional small-particle correction.
+damped it is.
 
-**Key functions.** `gold_epsilon(λ)` (bulk analytic ε), `size_damping_correction`
-and `gold_epsilon_sized(λ, diameter)` (adds extra damping for small particles),
-`gold_index(...)` (returns n + ik), `medium_index("water")` (the surrounding
-liquid, n≈1.33).
+**Available models** (`use_gold_model(name)`; the cache records which one was used and
+`fit_real.py` refuses a mismatch):
+- `etchegoin` — analytic Drude + 2 interband critical points. Fast, no data files.
+  **Peak ~527 nm: ~4–6 nm too red. Do not use for calibration.**
+- `bb` — tabulated Brendel–Bormann (Rakić 1998). **Same ~4–6 nm red bias as etchegoin.**
+- `jc` — tabulated Johnson & Christy (1972), 49 points, cubic spline. **PRODUCTION for
+  the 13 nm system**: puts the 12.9 nm monomer at 522.8 nm (target 523.1).
+- `yakubovsky25` / `yakubovsky53` — tabulated thin-film n,k (Yakubovsky 2017), size-matched
+  (25 nm film for R < 25 nm, 53 nm film above), per lit-map ref 18. Bare `yakubovsky`
+  deliberately raises — the film choice must be explicit. Peak sits ~7.5 nm BLUE of
+  experiment at 12.9 nm, which the global fit converts into fake aggregation, so it is
+  the **systematics bound and the ≥50 nm option**, not production at 13 nm.
+
+**Damping decomposes** as γ = γ^(ep)(T) + γ_S, where γ^(ep) is the bulk electron–phonon
+term and γ_S = 3ℏk_F/(4Rmc) is the size-dependent surface/Landau damping. For a 13 nm
+particle γ_S ≈ 0.143 eV DOMINATES γ_bulk ≈ 0.044 eV. A small-particle (size-damping)
+correction exists as `gold_epsilon_sized` / `A_surf`.
+
+**ε(λ, T) IS IMPLEMENTED.** `gold_epsilon(..., temperature_C=)` applies a bulk
+thermal Drude-damping retune on top of any base dataset: γ_bulk(T) from the
+Holstein electron–phonon form (Debye Θ_D = 170 K), anchored at Olmon's 44 meV
+@ 20 °C — implemented from theory (stated explicitly in the docstring), and
+validated against Reddy 2016's measured single-crystal Drude slope (~12%
+agreement near room T). γ_bulk rises 20% over 15→75 °C. γ_S stays
+T-independent (Chetoui) and composes with γ_bulk(T) in a SINGLE retune
+(`gold_epsilon_sized(λ, D, A_surf, temperature_C)`) — the two deltas are not
+additive. Temperature threads through mie/clusters/clusters_tmatrix/spectra
+and the fitters; the T-matrix cache carries a temperature axis and records
+`eps_t_model`. Measured impact at D=12.9 (15→75 °C): with γ_S in the basis,
+peak −1.3%, @700 +3.7% — about a fifth to half of the observed changes; without
+γ_S the basis over-responds ~3× (γ_S dilutes the thermal term), which is why
+`size_correction=True` is REQUIRED for quantitative ε(T) fits. Verdict on the
+C500 series: with ε(T)+n(T) in the model the thermally-driven speciation
+signal collapses (ΔH₂≈0) — see CLAUDE.md #11.
+
+**Key functions.** `gold_epsilon(λ, model=, temperature_C=)`,
+`size_damping_correction` and `gold_epsilon_sized(λ, D, A_surf, temperature_C)`,
+`gold_index(...)` (returns n + ik), `gamma_bulk_ev(T)`,
+`thermal_damping_correction(λ, T)`; `medium_index("water", temperature_C)` →
+COMPLEX (CRC n(T): 1.3334@15 → 1.3229@80 °C — heating blue-shifts, masking part
+of any red-shift signal); `water_k(λ)` (tabulated 400–900 nm water absorption,
+incl. the 740–760 nm O–H bump; diagnostics only — not wired into Mie, where an
+absorbing host is ill-defined and blank-referencing cancels the bulk path).
 
 **Why the small-particle correction matters.** In a 12 nm particle the conduction
 electrons hit the surface before completing a mean free path, which broadens the
@@ -45,14 +83,22 @@ so it is a real confound you must include before blaming broadening on clusterin
 **Papers.**
 - Analytic gold model: Etchegoin, Le Ru & Meyer, *J. Chem. Phys.* 124, 164705 (2006).
 - Measured optical constants (production choice): Johnson & Christy, *Phys. Rev. B*
-  6, 4370 (1972); Olmon et al., *Phys. Rev. B* 86, 235147 (2012); Yakubovsky et
+  6, 4370 (1972); Olmon et al., *Phys. Rev. B* 86, 235147 (2012) — also the
+  Drude baseline used here (ħω_p = 8.45 eV, γ_bulk(RT) = 44 meV); Yakubovsky et
   al., *Opt. Express* 25, 25574 (2017).
 - Small-particle (surface-scattering) damping: Kreibig & Vollmer, *Optical
   Properties of Metal Clusters* (Springer, 1995); Coronado & Schatz, *J. Chem.
   Phys.* 119, 3926 (2003).
+- **Temperature dependence of ε:** Reddy, Guler, Kildishev, Boltasseva &
+  Shalaev, *Opt. Mater. Express* 6, 2776 (2016) — measured Drude+2CP ε(λ,T),
+  23–500 °C (ε₂ nearly doubles by 500 °C; ε₁ marginal); Chetoui et al. 2026 —
+  the γ(T) = γ^(ep)(T) + γ_S decomposition, γ_S explicitly T-independent
+  (lit-map §G).
 - **Which ε to actually use** (very relevant here): Klinavičius et al., *J. Phys.
   Chem. C* 129, 17616 (2025) — ref 18; they show the imaginary part dominates
-  size-fit accuracy and thin-film Yakubovsky ε generalises best for colloids.
+  size-fit accuracy and thin-film Yakubovsky ε generalises best for colloids
+  (measured here: at ~13 nm, peak-anchored fitting still favors `jc` — see
+  CLAUDE.md #2).
 
 ---
 
