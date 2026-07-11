@@ -290,6 +290,13 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
       detectable, not silent. WARNING: d42 vs t29 = 0.9984 — cross-size
       AGGREGATE species are mutually degenerate; mixing experiments must keep
       aggregation suppressed for the two-monomer reading to stay clean.
+      ADDENDUM (measured): shape-only BLIND analysis cannot detect the
+      mixture as such — a single Gaussian population imitates every tested
+      mix to RMS ≈ 0.01% of peak (50/50 mix ≡ D 32 nm at 22% poly). Ratio
+      retrieval therefore REQUIRES the two component shapes as priors
+      (TEM'd endmembers, as designed); in blind data the only flag for
+      hidden multimodality is an implausibly large fitted polydispersity
+      (≳15–20% where synthesis gives 5–10%).
 
 11. **[IMPLEMENTED — AND THE VERDICT IS LARGELY AGAINST THE OLD READING] Gold ε(λ,T).**
     `gold_epsilon(..., temperature_C=)` now applies a bulk thermal Drude-damping
