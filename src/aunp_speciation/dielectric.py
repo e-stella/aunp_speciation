@@ -45,9 +45,19 @@ def _gold_epsilon_etchegoin(lam):
 #               bias as 'etchegoin' (measured here; do not assume it "matches J&C").
 # 'jc'        : tabulated Johnson & Christy (1972) measured n,k — 49 points,
 #               187.9-1937 nm, embedded below (public-domain digitization from
-#               refractiveindex.info). Recommended for fitting real spectra:
-#               13 nm monomer peak ~521 nm in bare water (ties to ref 18: use
-#               measured constants, esp. the imaginary part).
+#               refractiveindex.info). 13 nm monomer peak ~523 nm in bare water.
+# 'yakubovsky25' / 'yakubovsky53' : tabulated thin-film n,k from Yakubovsky,
+#               Arsenin, Stebunov, Fedyanin & Volkov, Opt. Express 25, 25574
+#               (2017), for 25 nm and 53 nm e-beam-evaporated films (171 points,
+#               300-2000 nm; CC0 digitization via refractiveindex.info,
+#               main/Au/nk/Yakubovsky-{25nm,53nm}.yml; data file
+#               data/gold_yakubovsky.npz). Ref 18 (Klinavicius 2025, JPCC 129,
+#               17616) finds these, applied SIZE-MATCHED, are the best gold eps
+#               for colloidal AuNP retrieval: the thin film's measured eps2
+#               already embeds the surface-scattering/mean-free-path damping
+#               that bulk J&C needs a correction formula for. Size rule (make it
+#               explicit — use gold_model_for_diameter(), or pick a film):
+#               25 nm film for particle RADIUS < 25 nm, 53 nm film otherwise.
 _GOLD_MODEL = "etchegoin"
 _BB_TABLE = None
 
@@ -74,27 +84,70 @@ _JC_NM_N_K = np.array([
 ])
 
 
-_JC_SPLINE = None
+_NK_SPLINES = {}
+
+
+def _nk_spline(name, wl_t, n_t, k_t):
+    """Cubic spline of (n, k) vs wavelength, cached by name. Cubic, not linear:
+    the J&C grid is ~25 nm apart in the visible and linear interpolation puts
+    kinks at the nodes that the LSPR maximum snaps to (measured: peak pinned to
+    the 520.9 nm node). Same treatment for every tabulated dataset."""
+    if name not in _NK_SPLINES:
+        from scipy.interpolate import CubicSpline
+        _NK_SPLINES[name] = CubicSpline(wl_t, np.stack([n_t, k_t], axis=1), axis=0)
+    spl = _NK_SPLINES[name]
+    return lambda lam: spl(lam).T
 
 
 def _jc_spline():
-    """Cubic spline of (n, k) vs wavelength. The J&C grid is ~25 nm apart in
-    the visible; linear interpolation puts kinks at the nodes and the LSPR
-    maximum snaps to them (measured: peak pinned to the 520.9 nm node)."""
-    global _JC_SPLINE
-    if _JC_SPLINE is None:
-        from scipy.interpolate import CubicSpline
-        wl_t, n_t, k_t = _JC_NM_N_K.T
-        _JC_SPLINE = CubicSpline(wl_t, np.stack([n_t, k_t], axis=1), axis=0)
-    return lambda lam: _JC_SPLINE(lam).T
+    wl_t, n_t, k_t = _JC_NM_N_K.T
+    return _nk_spline("jc", wl_t, n_t, k_t)
+
+
+_YK_TABLE = None
+
+
+def _yk_spline(film):
+    """film: '25' or '53' (nm nominal film thickness)."""
+    global _YK_TABLE
+    if _YK_TABLE is None:
+        import os
+        f = os.path.join(os.path.dirname(__file__), "data", "gold_yakubovsky.npz")
+        _YK_TABLE = np.load(f)
+    t = _YK_TABLE
+    return _nk_spline(f"yk{film}", t["wavelength"], t[f"n{film}"], t[f"k{film}"])
+
+
+_MODELS = ("etchegoin", "bb", "jc", "yakubovsky25", "yakubovsky53")
 
 
 def use_gold_model(name):
-    """Select the gold dielectric model: 'etchegoin', 'bb', or 'jc'."""
+    """Select the gold dielectric model: 'etchegoin', 'bb', 'jc',
+    'yakubovsky25', or 'yakubovsky53'.
+
+    'yakubovsky' (no film) is deliberately NOT accepted: the film choice is a
+    size-matching decision that must be visible in the calling code — use
+    gold_model_for_diameter(D) to apply the ref-18 rule, or name a film.
+    """
     global _GOLD_MODEL
-    if name not in ("etchegoin", "bb", "jc"):
-        raise ValueError("model must be 'etchegoin', 'bb', or 'jc'")
+    if name == "yakubovsky":
+        raise ValueError(
+            "'yakubovsky' is size-matched: call "
+            "use_gold_model(gold_model_for_diameter(D)) to apply the rule "
+            "(25 nm film for radius < 25 nm, else 53 nm film), or select "
+            "'yakubovsky25' / 'yakubovsky53' explicitly.")
+    if name not in _MODELS:
+        raise ValueError(f"model must be one of {_MODELS}")
     _GOLD_MODEL = name
+
+
+def gold_model_for_diameter(diameter_nm, family="yakubovsky"):
+    """Ref-18 size-matching rule (Klinavicius 2025): Yakubovsky 25 nm-film
+    eps for particle radius < 25 nm, the 53 nm-film eps otherwise. Returns the
+    model NAME so the choice is explicit at the call site."""
+    if family != "yakubovsky":
+        raise ValueError("size matching is defined for family='yakubovsky'")
+    return "yakubovsky25" if diameter_nm / 2.0 < 25.0 else "yakubovsky53"
 
 
 def current_gold_model():
@@ -125,6 +178,11 @@ def gold_epsilon(wavelength_nm, model=None):
     if m == "jc":
         nk = _jc_spline()(lam)
         return (nk[0] + 1j * nk[1])**2
+    if m in ("yakubovsky25", "yakubovsky53"):
+        nk = _yk_spline(m[-2:])(lam)
+        return (nk[0] + 1j * nk[1])**2
+    if m == "yakubovsky":
+        use_gold_model(m)  # raises with the size-matching guidance
     return _gold_epsilon_etchegoin(lam)
 
 

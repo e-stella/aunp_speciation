@@ -107,9 +107,15 @@ def main():
         print(f"  poly       = {r.pct_poly:.2f} %  (± {r.param_sd['pct_poly']:.0f})")
         print(f"  dH2        = {r.dH2:.1f} kJ/mol (± {r.param_sd['dH2']:.1f})")
         print(f"  dS2        = {r.dS2:.3f} kJ/mol/K (± {r.param_sd['dS2']:.3f})")
-        print("  aggregated gold fraction vs T:")
-        for Tc, a in zip(temps_K - 273.15, agg):
-            print(f"     {Tc:5.0f} C : {a:.3f}")
+        print(f"  n_sca      = {r.n_sca:.2f} (± {r.param_sd['n_sca']:.2f})   "
+              "[~4 Rayleigh large-aggregate scattering; ~0 flat offset]")
+        print("  gold fractions + scattering pedestal vs T:")
+        print("      T      mono   dimer  trimer   agg   A_sca@550")
+        for i, Tc in enumerate(temps_K - 273.15):
+            print(f"     {Tc:5.0f} C {r.gold_fractions['monomer'][i]:7.3f}"
+                  f"{r.gold_fractions['dimer'][i]:8.3f}"
+                  f"{r.gold_fractions['trimer_linear'][i]:8.3f}"
+                  f"{agg[i]:7.3f}   {r.a_sca[i]:.4f}")
         print(f"  residual RMS = {r.residual_rms:.4f}")
         fig, ax = plt.subplots(figsize=(7, 4.6))
         cmap = plt.cm.coolwarm(np.linspace(0, 1, len(temps_K)))
@@ -122,12 +128,15 @@ def main():
         ax.legend(frameon=False, fontsize=8, ncol=2)
     else:
         print("single spectrum -> single-spectrum fit")
-        r = fit_spectrum(wl, spectra[0], species=SPECIES, gap_nm=1.0)
+        r = fit_spectrum(wl, spectra[0], species=SPECIES, gap_nm=1.0,
+                         backend=backend, n_sizes=5)
         print(f"\n  diameter = {r.diameter_nm:.2f} ± {r.diameter_sd:.1f} nm  "
               f"[{r.identifiability['diameter']}]")
         print(f"  poly     = {r.pct_poly:.2f} %  [{r.identifiability['pct_poly']}]")
         print(f"  aggregated gold = {r.aggregated_gold:.3f} ± "
               f"{r.aggregated_gold_sd:.3f}  [{r.identifiability['aggregated_gold']}]")
+        print(f"  pedestal a_sca = {r.a_sca:.4f} @550 nm, n_sca = {r.n_sca:.2f} "
+              "(weakly identified from one spectrum)")
         fig, ax = plt.subplots(figsize=(7, 4.4))
         ax.plot(wl, spectra[0] / spectra[0].max(), ".", ms=3, color="0.5", label="data")
         ax.plot(r.wavelength, r.model, "-", color="#D55E00", lw=2, label="fit")

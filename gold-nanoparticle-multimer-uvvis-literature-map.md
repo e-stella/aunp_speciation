@@ -61,7 +61,12 @@ No reference here combines a thermally-driven isosbestic multimer equilibrium in
 
 ## C. Size & concentration from UV–Vis — the classical (monomer-only) tool foundation
 
-14. **Haiss, Thanh et al., "Determination of Size and Concentration of Gold Nanoparticles from UV−Vis Spectra," *Anal. Chem.* 2007.** — The canonical calibration (peak position & the ratio A_spr/A_450 → diameter; extinction → concentration). The baseline "monomer-only" method being extended here. https://pubs.acs.org/doi/10.1021/ac0702084
+14. **Haiss, Thanh et al., "Determination of Size and Concentration of Gold Nanoparticles from UV−Vis Spectra," *Anal. Chem.* 2007.** — *(reviewed in full)* The canonical calibration (peak position & the ratio A_spr/A_450 → diameter; extinction → concentration). The baseline "monomer-only" method being extended here. **Verified details that matter for this project:**
+    - **Permittivity:** bulk-gold n(λ) from **Johnson & Christy (1972)**, spline-fitted for continuous evaluation, then **corrected for the reduced mean free path** of conduction electrons in small particles. (Bulk measurement + analytic small-particle correction — contrast with ref 18's size-matched thin-film approach.)
+    - **Peak-position method fails below ~25 nm:** theory matches experiment for **25–120 nm**, but below 25 nm the observed peak sits lower than predicted; attributed to the rising surface-to-bulk atom ratio below 20 nm. (Independently reproduced here: normalized single spectra of 8–31 nm AuNP are near-degenerate in size.)
+    - **Haiss already knew the red side is aggregation-contaminated.** They state that long-wavelength absorbance ratios can be used to *assess hydrosol quality or monitor aggregation* but are **not suitable for size determination**, and that theory–experiment agreement improves for ratios taken **below 600 nm** — which is exactly why the reference is 450 nm. → The A_spr/A_450 design is a deliberate *avoidance* of the red-side signal this project aims to *model*. Strong support for the central thesis, and a direct citation for "red-side extinction is unmodeled in monomer-only tools."
+    - **Stated limitation:** calculations assume **monodisperse, perfectly spherical** particles.
+    https://pubs.acs.org/doi/10.1021/ac0702084
 
 15. **"Determination of Size and Concentration of Gold Nanoparticles from Extinction Spectra," *Anal. Chem.* 2008.** — Full-spectrum (not just peak) inversion using Mie theory; the natural forward model to fit against. https://pubs.acs.org/doi/10.1021/ac800834n
 
@@ -73,7 +78,13 @@ No reference here combines a thermally-driven isosbestic multimer equilibrium in
 
 17. **Klinavičius et al., "Deep Learning Methods for Colloidal Silver Nanoparticle Concentration and Size Distribution Determination from UV–Vis Extinction Spectra," *J. Phys. Chem. C* 2024.** — *(reviewed in full)* Tandem DNN: "DipoleNet" isolates the dipolar LSPR component, "ColloidNet" maps it → log-normal size distribution + concentration; trained on effective-medium (Maxwell-Garnett-Mie) / Mie simulated spectra; μ recovered to ~1.2% (large NPs), 6.1% overall. **Two caveats that matter here:** (i) all colloids were **sonicated before UV–Vis and TEM to break up agglomerates** — i.e. good matches are in a forced-monomer state; (ii) the paper explicitly warns aggregation red-shifts, broadens, and lowers the spectrum, causing over-predicted size / under-predicted concentration. This is the *control experiment* for the hypothesis, not a counterexample. Also: σ (distribution width) was consistently **over**estimated. https://pubs.acs.org/doi/10.1021/acs.jpcc.4c02459
 
-18. **"How to Select the Proper Gold Permittivity for Generating Training Data for Deep Neural Networks for Analysis of the Nanoparticle Colloid Size Distributions from Their UV–Vis–NIR Extinction Spectra?," *J. Phys. Chem. C* 2025.** — *(paywalled — not yet reviewed)* The training-data engineering that makes ref 17 work for gold; which Au dielectric function (Johnson–Christy vs Olmon etc.) to use matters for fit fidelity. https://pubs.acs.org/doi/10.1021/acs.jpcc.5c03973
+18. **Klinavičius, Tamulevičienė & Tamulevičius, "How to Select the Proper Gold Permittivity for Generating Training Data for Deep Neural Networks for Analysis of the Nanoparticle Colloid Size Distributions from Their UV–Vis–NIR Extinction Spectra?," *J. Phys. Chem. C* 2025, 129, 17616–17631.** — *(reviewed in full)* **The permittivity-choice paper — directly actionable for `dielectric.py`.** Key findings:
+    - Gold permittivities measured by different authors **vary significantly — especially the imaginary part ε₂** — and this has a **profound effect** on DNN training and prediction accuracy. ε choice is not a detail.
+    - **Best performers for colloidal AuNP were NOT bulk Johnson & Christy** but **Yakubovsky's thin-film measurements**, applied *size-matched*: the **25 nm-film ε for particles below 25 nm radius, the 53 nm-film ε for larger**. Lemarchand's 11 nm-film data also performed well.
+    - Of all permittivities tested, those with **medium-to-high LSPR quality factor** performed best.
+    - Philosophy: a thin film's *measured* ε already embeds some reduced-mean-free-path/surface-scattering physics that a nanoparticle experiences — obtained empirically rather than via a correction formula (contrast ref 14's bulk-J&C + analytic correction).
+    → **Consequence for this tool:** `dielectric.py` currently offers `etchegoin` / `bb` / `jc`. A **`yakubovsky` (size-matched thin-film) option should be added** and tested; a wrong ε₂ directly changes damping and therefore the red tail, so ε is a **confound that must be ruled out before attributing static red-side excess to speciation**. (Note: the *temperature-dependent, reversible* part of the red-side growth cannot be a dielectric artifact.)
+    https://pubs.acs.org/doi/10.1021/acs.jpcc.5c03973
 
 19. **Bilén et al., "Machine Learning-Based Interpretation of Optical Properties of Colloidal Gold with Convolutional Neural Networks," *J. Phys. Chem. C* 2024.** — *(reviewed in full)* CNN takes a UV–Vis spectrum → predicts mean diameter + polydispersity (σ) of a Gaussian, for spheres and rods; trained on in-silico spectra. **Forward model = MEEP/FDTD single-particle spectra + additive mixing of 100,000 sampled sizes, explicitly "not considering… plasmon coupling."** Two key results: (i) mean diameter strongly imprints on the spectrum but **polydispersity barely does**, and becomes the hardest parameter under noise; (ii) the sim-vs-experiment gap is blamed on "not accounting for capping agents or plasmon coupling." The authors also hit FDTD numerical instabilities on some spectra. https://pubs.acs.org/doi/10.1021/acs.jpcc.4c02971
 
@@ -140,4 +151,152 @@ The key simplifier: **12 nm ≪ λ (~520 nm), so we are deep in the quasi-static
 
 ---
 
-*Access status (2026-07-09): refs 7, 17, 19, 20 reviewed in full; ref 18 (gold-permittivity training-data paper) still paywalled and not yet reviewed. Remaining summaries rely on abstracts + open-access sources.*
+## Empirical findings from lab data (analysis sessions, 2026-07)
+
+Two in-house datasets were analyzed against the monomer forward model. Both show
+**red-side extinction in excess of clean-monomer Mie prediction** — the effect the
+literature above treats as an error term. A chain of controls has since *excluded*
+most of the mundane explanations; what remains is a genuine, particle-derived,
+reversible scattering population of **unexpectedly large** scatterers.
+
+### Dataset 1 — C500 temperature series
+Cary 100, 2011; citrate/TEG AuNP, TEM 12.9 nm ± 7%, 45× diluted into the linear
+absorbance regime from the optical-force stock. Reproduces report Figs 16–17.
+
+- **Normalization:** multiplicative anchor at **400 nm** (gold ≈ dielectric there →
+  extinction tracks total cross-section, ~speciation-invariant; Beer–Lambert makes
+  the correction multiplicative, not additive). Removes ~3% inter-scan drift.
+- **Isosbestic crossing ≈ 575 nm**, recovered only after 400 nm normalization
+  (un-normalized data gives a spurious ~542 nm crossing). Consistent with a
+  predominantly two-state monomer ⇌ dimer equilibrium; slight red drift of the
+  crossing at the highest T suggests minor higher-order aggregation.
+- **The red wing is a near-flat "pedestal", not a coupled-plasmon shoulder.**
+  Red-tail/peak (700/523 nm) ≈ 0.18→0.21 growing with T, still ~0.16–0.19 at 790 nm.
+  Best basis red-tails fall an order of magnitude short (CDA dimer ~0.010;
+  **exact T-matrix** dimer ~0.021, linear trimer ~0.023 at 790 nm). The
+  tail-minus-pedestal is ~T-constant ⇒ **the growth is the pedestal**, and it is
+  **reversible on both heating and cooling branches**.
+- Fitting the raw shape without a pedestal term rails D/polydispersity (the fit
+  fakes the pedestal with size), corrupting BOTH size AND the species fractions
+  that are the end goal.
+
+### The pedestal: what it is NOT (four independent exclusions)
+
+**(a) NOT small-aggregate Rayleigh scattering.** A λ^(−n) scattering term was added
+to the fit with **n fitted, not fixed** (bounded [0,6], started neutrally at 2) as an
+explicit falsifiable test: n ≈ 4 ⇒ Rayleigh from small aggregates; n ≈ 0 ⇒ flat
+offset. **Measured: n_sca ≈ 0.63–0.79** across both branches and both ε bases —
+**decisively not Rayleigh.** The pedestal decays far too weakly for sub-λ scatterers.
+n ≈ 0.7 points to scatterers **≳ λ** (i.e. hundreds of nm to µm), where Mie
+scattering flattens toward λ⁰. *The small-multimer-Rayleigh hypothesis is rejected
+by the data; it was not tuned to fit the story.*
+A_sca is reversible (tracks T on both branches, ~+2–3% over 15→75 °C, hysteresis
+~1–2.5%). Adding the term: RMS 0.037 → 0.0225, agg fraction 0.41–0.47.
+⚠️ **Open degeneracy:** the near-flat pedestal trades against diameter — D falls to
+11.2 ± 0.7 / 12.2 ± 0.6 nm (~2σ below TEM 12.9), vs 12.5–12.6 under the old ad-hoc
+baseline subtraction. **D, A_sca, and the species fractions are therefore not yet
+independently trustworthy.**
+
+**(b) NOT a permittivity artifact.** Yakubovsky size-matched thin-film ε (ref 18)
+*does* raise the model red tail vs J&C (+34% @700 nm, +20% @790 nm) — so ε error is
+a real contributor — but it accounts for only **~1–2% of the measured pedestal**, and
+re-estimating on the yk25 basis moved A_sca by just ~−5%. Trade-off found:
+yakubovsky's peak sits **7.5 nm blue** of experiment at 12.9 nm, which the global fit
+converts into *fake aggregation* (agg 0.7–0.8) ⇒ **`jc` stays production for the
+13 nm system; yakubovsky is the systematics bound and the ≥50 nm option.**
+
+**(c) NOT instrumental, and NOT thermal-optical artifact of the cell.** The 2011
+`raw` sheet contains **2–4 water-blank scans at every temperature**, interleaved
+before each sample scan — a proper blank temperature series. **The blanks are flat
+with T:** far-red blank level drifts by only **−0.0016 (700 nm) / −0.0020 (790 nm)**
+over 15→75 °C, i.e. **~15× smaller than the sample pedestal's ≈ +0.03 growth, and in
+the OPPOSITE direction.** This experimentally excludes, for the *temperature-dependent*
+component: stray light, convection/schlieren in the heated cuvette, and gas-bubble
+formation from dissolved gas (pure water carries the same dissolved-gas load and
+shows nothing). *A static instrumental offset (~0.03 abs) is present in the far red
+and does contribute to the pedestal's absolute baseline — but not to its T-dependence,
+which is where the science is.*
+
+**(d) NOT nanobubbles on the particle surfaces.** Checked against the steady-state
+(non-laser) surface-nanobubble literature — see section F. Every specific detail cuts
+against it: nanobubbles require **hydrophobic** surfaces (citrate/TEG AuNP are
+deliberately hydrophilic), **high curvature suppresses** their formation on gold,
+observed surface nanobubbles are **120–145 nm** (far too large to sit on a 13 nm
+sphere), and **heating to 40–60 °C *reduces* their number** rather than growing them —
+the opposite of the pedestal's behavior. Note the *laser-driven* plasmonic-nanobubble
+literature is a different regime entirely (particle superheated far above the bulk
+liquid) and must not be conflated with mild bulk heating to 75 °C.
+
+**⇒ What remains:** a genuine, nanoparticle-derived, reversible population of
+scatterers **comparable to or larger than the wavelength** (≳ several hundred nm).
+Not the dimers/trimers being speciated — a distinct, larger channel. Small clusters
+shape 520–600 nm; this population makes the far-red floor.
+**Decisive next test is experimental, not more fitting:** DLS across the temperature
+ramp (does µm-scale material appear reversibly on heating?), and/or a
+filtered/centrifuged control (does the pedestal survive removal of large material?).
+
+### Dataset 2 — CTAC size series
+Irina; 5 samples, TEM 7.8 / 29.2 / 31.5 / 37.9 / 42.0 nm, 4–9% polydispersity, single
+room-T spectra; well-dispersed CTAC-capped monomers.
+
+- **Confirms the red-tail excess in "good" samples.** With diameter **fixed to TEM
+  ground truth** (amplitude the only free parameter), the data ride above the Mie
+  curve across ~560–660 nm in **every** sample — including the pristine 29/31 nm ones.
+  Independently reproduces the persistent-red-tail-vs-simulation effect reported in
+  the lab, in a *different* surface chemistry and a *different* sample set.
+- **Single-spectrum size retrieval fails below ~35 nm** (shape-only fit: TEM 7.8 →
+  15.7 nm; 29.2 → 19.7; 31.5 → 20.2; 37.9 → 30.7; but 42.0 → 40.2 ✓). An *information*
+  limit, not a bug — matches ref 14's own ≥25 nm validity statement.
+- **The Haiss A_spr/A_450 ratio is only a partial rescue:** it separates 8 nm from
+  ~30 nm but **saturates across 29–42 nm** (ratios 2.39–2.43), and the measured ratios
+  sit **above** clean-monomer Mie — the excess red tail inflates A_spr, so **the red
+  tail biases the Haiss size readout upward**, exactly the contamination ref 14 itself
+  warned about.
+- **Scattering channel validated across size** (Mie, jc): σ_sca/σ_ext at peak = 0.4%
+  (8 nm) → 0.8% (29–31) → 3.0% (38) → **6.7% (42 nm)** — the expected (size)⁶-vs-(size)³
+  scaling. **For the planned ~60 nm work** scattering is 15–30% of extinction and even
+  *monomers* scatter appreciably, which will partially degenerate with the A_sca term
+  and make the pedestal/species separation harder than it is at 13 nm.
+
+### Known model gaps exposed by this analysis
+- **Medium index is frozen and purely real.** `WATER_N = 1.333`, no T-dependence and
+  **no imaginary part** — water is modeled as lossless. Water's index falls ~1.3334
+  (15 °C) → ~1.3200 (75 °C), and water genuinely absorbs in the red/NIR (visible in the
+  blank scans as a rise toward the red with a bump near 740–760 nm). Both should be
+  added. **Falsifiable prediction: neither will explain the pedestal** — a ~1% index
+  change shifts the *resonance* by ~1 nm; it cannot create a flat far-red floor. If
+  adding n(T) absorbs a meaningful fraction of A_sca, something is badly misunderstood
+  and it must be flagged loudly.
+  (Note the medium n(T) effect is a *blue* shift on heating, opposite in sign to the
+  observed peak red-shift — so it is currently *masking* part of the speciation signal.)
+
+---
+
+## F. Steady-state (non-laser) surface nanobubbles — the excluded hypothesis
+
+Consulted to test whether the reversible T-dependent pedestal could be gas bubbles on
+the AuNP surfaces. **Conclusion: no** (see exclusion (d) above). Retained because the
+exclusion is load-bearing for the interpretation.
+
+21. **"Surface nanobubbles: Theory, simulation, and experiment. A review," *Adv. Colloid Interface Sci.* 2019.** — Establishes that surface nanobubbles **do** form spontaneously by simple immersion, without lasers; gas concentration ~100–110% and liquid temperature ~25–45 °C favor formation; lifetimes reach hours-to-days, far exceeding the Epstein–Plesset prediction from the high Laplace pressure. https://www.sciencedirect.com/science/article/abs/pii/S0001868619300685
+
+22. **"On the stability of bubbles trapped at a solid–liquid interface: A thermodynamical approach."** — The phase-space study on a **hydrophobised silicon** substrate with independently controlled temperature and gas concentration; NBs occupy a distinct region at ~100–110% gas concentration; micropancakes appear at higher T and gas concentration; supersaturation is **not** required for nucleation.
+
+23. **"Solid-liquid interfacial nanobubble nucleation dynamics influenced by surface hydrophobicity and gas oversaturation," *ScienceDirect* 2024.** — **The load-bearing exclusion.** MD simulations show a *distinct preference* for interfacial nanobubbles to form on **hydrophobic** rather than hydrophilic surfaces, agreeing with experiment (gas enriches at the hydrophobic surface, disrupting the hydration layer). Citrate/TEG-capped AuNP are deliberately **hydrophilic** ⇒ wrong surface chemistry. https://www.sciencedirect.com/science/article/abs/pii/S0167732224018178
+
+24. **"Thermal Conductance of the Gold–Water Interface…," PMC12814529.** — States directly that **high interfacial curvature enhances conductance, SUPPRESSES nanobubble formation**, and maintains efficient heat transfer even at high temperatures. Supports the Young–Laplace argument (2γ/r makes nm-radius bubbles hard to sustain). ⚠️ *Caveat: derived in a **laser-processing** context; the curvature result is general interfacial physics, but the transfer to mild bulk heating is supporting, not decisive.* https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12814529/
+
+25. **"Experimental investigation on nucleation of surface nanobubbles with polycarbonate hydrophobic surface tested under heterogeneous boiling," *ScienceDirect* 2023.** — AFM before/after heating water to 40/50/60 °C: the **number of bubbles DECREASED by ~5%** after heating; average surface nanobubble size **120–145 nm**; size "not considerably changed" on heating. ⇒ Wrong size scale (a 13 nm sphere cannot host a pinned 120 nm spherical cap) and wrong temperature response (heating reduces, not grows). ⚠️ *Caveat: flat **polycarbonate** substrate, not AuNP.* https://www.sciencedirect.com/science/article/abs/pii/S2214785323030249
+
+**Evidence-quality note:** refs 21 & 23 (existence + hydrophobicity requirement) are
+solid and directly on point; refs 24 & 25 are corroborating but come from adjacent
+systems (laser-heated gold; flat polycarbonate). **No direct study of bubble formation
+on citrate-capped AuNP under mild bulk heating appears to exist** — that gap is itself
+worth knowing. Lead with the hydrophobicity argument and the in-house blank control
+(exclusion (c)), which is the strongest single piece of evidence.
+
+---
+
+*Access status (2026-07-10): refs 7, 14, 17, 18, 19, 20 reviewed in full; refs 21-25 (nanobubble section F) consulted via search snippets, not full text
+(ref 14 Haiss and ref 18 gold-permittivity paper now obtained and read).
+Remaining summaries rely on abstracts + open-access sources.*

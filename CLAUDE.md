@@ -73,12 +73,28 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
    T-matrix; Python `treams`/`smuthi`, or Mackowski MSTM) — verified to match
    CDA for a monomer and in the weak-coupling limit. This is the top priority
    upgrade for Layer 2.
-2. **Analytic gold dielectric** shifts the absolute peak ~5–10 nm (currently
-   527 nm vs ~520 nm expected). Swap in tabulated J&C / Yakubovsky (ref 18).
-   A size-damping correction exists (`gold_epsilon_sized`) but is NOT yet wired
-   into the size-integral of `spectra.species_basis` (mie has `size_correction=`
-   flag, default off) — wire it so each size in the polydispersity integral uses
-   its own ε. Big effect: FWHM 79→117 nm at 12 nm.
+2. **Gold dielectric: `yakubovsky` IMPLEMENTED and measured — ε is a real but
+   SMALL red-tail confound, and a LARGE speciation confound.** Models now:
+   `etchegoin`, `bb`, `jc`, `yakubovsky25`, `yakubovsky53` (Yakubovsky 2017
+   thin-film n,k, 300–2000 nm, `data/gold_yakubovsky.npz`, CC0 via
+   refractiveindex.info; cubic-spline like `jc`). Ref-18 size-matching rule is
+   explicit: `gold_model_for_diameter(D)` → 25 nm film for R<25 nm, else 53 nm
+   film; bare `'yakubovsky'` deliberately raises (no silent film switching).
+   Measured at D=12.9 in water (peak | 700/peak | 790/peak):
+   etchegoin 526.9|.0090|.0045 · bb 527.0|.0188|.0091 · jc 522.8|.0124|.0066 ·
+   yk25 515.6|.0166|.0079 · yk53 515.8|.0122|.0059. So: **yk25 raises the
+   monomer red tail vs jc (+34% @700, +20% @790) — but that is only ~1–2% of
+   the measured pedestal (#8): the red excess is NOT an ε artifact.** Fitted on
+   C500, switching jc→yk25 moves A_sca by only ~−5% and n_sca by ~0.1. BUT
+   yk25/53 put the peak 7.5 nm BLUE of experiment (evaporated-film ε₁ ≠
+   colloidal Au), and in the global fit that bias masquerades as aggregation
+   (agg jumps to a non-credible 0.7–0.8 with lower RMS — more-flexible-but-
+   wrong). ⇒ **keep `jc` for the 13 nm C500 fits; use yakubovsky as the
+   ε-systematics bound and for ≥50 nm work (where ref 18's validation lives).**
+   Also: a size-damping correction exists (`gold_epsilon_sized`) but is NOT yet
+   wired into the size-integral of `spectra.species_basis` (mie has
+   `size_correction=` flag, default off) — wire it so each size in the
+   polydispersity integral uses its own ε. Big effect: FWHM 79→117 nm at 12 nm.
 3. **Cluster polydispersity** is applied approximately (size-scaled). Refine
    with per-size cluster runs if needed.
 4. Cluster geometry set is minimal (dimer, linear/triangular trimer). Extend
@@ -118,22 +134,33 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
    two-sided: dH∈[−150,+150] kJ/mol, dS∈[−0.6,+0.6] kJ/(mol·K); the
    `equilibrium.association_constants` docstring now covers both sign regimes.
    Synthetic self-test (exothermic truth) still recovers correctly.
-8. **The real red wing is mostly a FLAT PEDESTAL no small-cluster basis can fit
-   (supersedes the CDA-only framing).** Measured on C500 after mult_400nm
-   normalization: 700 nm/peak ≈ 0.18→0.21 growing with T, but still 0.156→0.186
-   at 790 nm — a nearly wavelength-flat pedestal ≈15–19% of peak. Best available
-   basis red-tails (jc, D=12.9): CDA dimer ~0.010; EXACT T-matrix dimer 0.021
-   (gap 1 nm), trimer_linear 0.068/0.023 (700/790, gap 0.5) — an order of
-   magnitude short at 790 nm. The tail-minus-pedestal is ~T-constant, so the
-   GROWTH of the red wing is the pedestal growing (reversibly — it tracks T on
-   both heating and cooling branches): broadband scattering from large
-   multimers/turbidity, NOT dimer/trimer coupling. Consequences: (a) fitting the
-   raw shape rails D/poly (the fit fakes the pedestal with size); (b) subtracting
-   a per-T baseline (mean 780–800 nm) before `fit_temperature_series` gives
-   physical results: D = 12.5±1.5 (heating) / 12.6 (cooling) vs TEM 12.9, RMS
-   0.125→0.037, aggregated gold ~0.33–0.42 roughly T-stable. NEXT STEP: add a
-   scattering/baseline component to the fit model (e.g. a flat or λ^-n term, or
-   a large-multimer species) instead of ad-hoc subtraction.
+8. **Scattering pedestal: MODELED — and it is NOT Rayleigh.** The C500 red wing
+   is a near-flat pedestal (700/peak 0.18→0.21, 790/peak 0.156→0.186, growing
+   with T) that no monomer/dimer/trimer basis reaches (exact T-matrix dimer
+   ~0.021 @700; order of magnitude short at 790). IMPLEMENTED: the forward
+   model in `fit_global.py` (and `fitting.py`) now includes
+   A_sca,T·(λ/550)^(−n_sca): per-T amplitudes profiled by NNLS together with
+   the global amplitude (linear, ≥0), ONE shared exponent fitted in [0,6].
+   This replaces (deprecates) the ad-hoc per-T 780–800 nm subtraction.
+   **Findings on C500 (exact jc basis):** n_sca = 0.73±0.01 (heating) /
+   0.79±0.03 (cooling); ε-robust (yk25: 0.63–0.65) — **decisively NOT n≈4
+   Rayleigh**: the pedestal decays too weakly for small aggregates and points
+   to scatterers ≳λ (µm-scale flocs; large-particle Mie flattens toward λ⁰),
+   and/or partly instrumental stray light. A_sca ≈ 0.21–0.22 of series max
+   @550, grows ~+2–3% over 15→75 °C and is REVERSIBLE across branches
+   (hysteresis ~1–2.5%, cooling slightly above heating) — supporting a
+   physical scatterer over pure drift. Fit quality: RMS 0.125 (no pedestal) →
+   0.037 (ad-hoc subtraction) → 0.0225 (fitted pedestal). Speciation: agg
+   small-cluster gold ≈ 0.41–0.47, ~T-stable/mildly decreasing; D = 11.2±0.7
+   (heating) / 12.2±0.6 (cooling). CAVEATS: (a) with n≈0.7 the pedestal
+   extends under the plasmon peak, so it partially trades against D/poly — D
+   sits ~2σ below TEM 12.9; pin size via absolute extinction/Haiss (#10), not
+   the normalized shape. (b) Guardrails passed: on clean synthetics A_sca
+   returns ≈0 and old parameters are recovered (matched-backend caveat:
+   `fit_spectrum` now takes `backend=` — an optics mismatch between data and
+   basis gets absorbed by D AND fake a_sca). (c) See the fit_global.py
+   docstring for the ≥60 nm design note: the species basis keeps its own
+   Mie/T-matrix scattering; A_sca only absorbs the un-enumerated population.
 9. **[FIXED] Monomer peak ~4 nm red of experiment.** Root cause was the gold
    dielectric DATASET, not the medium: tabulated Johnson & Christy (model
    `'jc'`, embedded in `dielectric.py`, cubic-spline interpolated — linear
@@ -143,6 +170,28 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
    500–540 nm window just like Etchegoin — do not use either for calibration.
    `fit_real.py` sets `'jc'`; caches record their `gold_model` and `fit_real`
    refuses a mismatched cache.
+10. **Single-spectrum size retrieval fails below ~35 nm — INDEPENDENTLY CONFIRMED,
+    and the red tail biases even the Haiss rescue.** Validated on the CTAC size
+    series (5 monomer samples w/ paired TEM: 7.8 / 29.2 / 31.5 / 37.9 / 42.0 nm):
+    shape-only Mie fit returns 15.7 / 19.7 / 20.2 / 30.7 / 40.2 nm — i.e. only the
+    42 nm sample is recovered. This is an INFORMATION limit, not a bug: normalized
+    small-particle spectra are near size-degenerate (Haiss ref 14 states their own
+    peak-position method is valid only ≥25 nm). The **Haiss A_spr/A_450 ratio only
+    partly helps**: it separates 8 nm from ~30 nm but SATURATES across 29–42 nm
+    (~2.39–2.43), and measured ratios sit ABOVE clean-monomer Mie because the
+    excess red tail (#8) inflates A_spr — so the red tail contaminates the size
+    readout too. ⇒ Size must be pinned by the TEMPERATURE SERIES (absolute
+    extinction + van 't Hoff), not a single normalized spectrum.
+    **Also validated (good news):** the Mie scattering channel is sound —
+    σ_sca/σ_ext at peak rises 0.4% (8 nm) → 6.7% (42 nm), the expected
+    (size)⁶-vs-(size)³ scaling. For planned ~60 nm work scattering is 15–30% of
+    extinction and even monomers scatter, which will make the pedestal/species
+    separation (#8) harder than it is at 13 nm — design the scattering term for
+    that now.
+    **Red-tail excess is reproducible in clean samples:** with D FIXED to TEM
+    ground truth, data ride above Mie across ~560–660 nm in every CTAC sample,
+    including the pristine 29/31 nm ones — independently reproducing the
+    persistent-red-tail-vs-simulation effect reported in the lab.
 
 ## Conventions
 - Units: lengths in nm, cross sections in nm². Wavelengths are vacuum λ₀.
@@ -199,11 +248,17 @@ Two gotchas learned the hard way:
   adopt it. Rebuild the cache after changing the dielectric.
 
 ## Next steps (suggested order)
-1. **Add a scattering/baseline component to the fit model** (limitation #8): a
-   flat or λ^-n pedestal term (or a large-multimer species) profiled out with
-   the species weights, replacing the ad-hoc per-T 780–800 nm subtraction that
-   currently makes the C500 fits physical (D≈12.5 vs TEM 12.9, RMS 0.037).
-   Then revisit the mult_400nm anchor (the pedestal lifts 400 nm too).
+0. **Add `yakubovsky` size-matched thin-film ε to `dielectric.py`** (limitation
+   #2, ref 18) and re-check the monomer peak + red tail. Cheap, and it RULES OUT
+   an ε artifact as the source of the static red-side excess before #1 attributes
+   that excess to a scattering population. Do this BEFORE trusting #1's amplitude.
+1. **Scattering term: DONE** (see #8; n_sca≈0.7, not Rayleigh). Follow-ups:
+   (a) replace the phenomenological λ^-n with a real large-aggregate Mie
+   species (a few 100 nm–1 µm effective sizes) to test the floc hypothesis
+   against the fitted n; (b) revisit the mult_400nm anchor — the pedestal
+   lifts 400 nm too, so the anchor slightly over-corrects concentration;
+   (c) the pedestal–(D, poly) degeneracy leaves D ~2σ low vs TEM: pin size
+   with absolute extinction/Haiss (#10).
 2. Wire the size-damping correction into the polydispersity integral (tabulated
    J&C 'jc' is DONE and calibrated to 522.8 nm; size-damping remains off there).
 3. Add the Haiss A_spr/A_450 ratio + absolute extinction to pin size &

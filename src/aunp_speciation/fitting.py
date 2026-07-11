@@ -7,10 +7,13 @@ Given a measured extinction spectrum, recover:
 with uncertainties.
 
 Strategy: separable / variable-projection least squares.
-  * Nonlinear parameters theta = (mean_diameter, pct_polydispersity) set the
-    shape of each species' basis spectrum.
-  * For each theta the species mixing weights are LINEAR, so we profile them out
-    with non-negative least squares (NNLS) at every evaluation.
+  * Nonlinear parameters theta = (mean_diameter, pct_polydispersity, n_sca) set
+    the shape of each species' basis spectrum and of the broadband-scattering
+    pedestal (lambda/550)^(-n_sca) (see fit_global.py for the pedestal's
+    rationale and the >=60 nm degeneracy caution).
+  * For each theta the species mixing weights AND the pedestal amplitude are
+    LINEAR, so we profile them out with non-negative least squares (NNLS) at
+    every evaluation.
   * An outer `least_squares` optimizes theta on the profiled residual.
 
 Covariances: theta from the outer Jacobian; weights from a linear model at the
@@ -26,6 +29,7 @@ import numpy as np
 from scipy.optimize import least_squares, nnls
 
 from .spectra import species_basis
+from .fit_global import _sca_shape
 
 # particles per cluster, for converting number fractions -> gold fractions
 _K = {"monomer": 1, "dimer": 2, "trimer_linear": 3, "trimer_triangular": 3}
@@ -50,11 +54,18 @@ class FitResult:
     residual_rms: float
     success: bool
     message: str = ""
+    # broadband-scattering pedestal A_sca*(lambda/550)^(-n): amplitude at
+    # 550 nm (normalized units) + exponent. See fit_global.py's model docstring
+    # (incl. the >=60 nm degeneracy caution). A single spectrum constrains
+    # n_sca weakly — trust the temperature-series fit for it.
+    a_sca: float = 0.0
+    n_sca: float = np.nan
 
 
-def _build_basis_matrix(wl, D, p, gap, med, species):
+def _build_basis_matrix(wl, D, p, gap, med, species, backend, n_sizes):
     """(n_wl, n_species) matrix of per-cluster species spectra."""
-    basis = species_basis(wl, D, p, gap, med, species=species)
+    basis = species_basis(wl, D, p, gap, med, species=species,
+                          backend=backend, n_sizes=n_sizes)
     return np.column_stack([basis[s] for s in species])
 
 
@@ -69,11 +80,18 @@ def fit_spectrum(
     d0=11.0,
     p0=6.0,
     fit_stride=2,
+    backend="cda",
+    n_sizes=7,
 ):
     """Fit an extinction spectrum. Returns a FitResult.
 
     fit_stride subsamples the wavelength grid for speed during optimization
     (the CDA cluster solve is the cost); the returned model is on that grid.
+    backend: optics engine, same options as species_basis ('cda', 'tmatrix',
+    or a cached interpolator's species_fn) — MUST match whatever produced the
+    data being fitted, else the mismatch is absorbed by D and the scattering
+    pedestal (demonstrated: exact-optics data + CDA basis rails D and fakes
+    a_sca even on clean synthetics).
     """
     wl = np.asarray(wavelength_nm, dtype=float)
     y = np.asarray(ext, dtype=float)
@@ -82,9 +100,12 @@ def fit_spectrum(
     yf = yf / yf.max()  # scale-free target
 
     def weights_for(theta):
-        D, p = theta
-        B = _build_basis_matrix(wlf, D, p, gap_nm, n_medium, species)
-        # normalize columns' influence by fitting to yf via NNLS
+        D, p, n_sca = theta
+        B = _build_basis_matrix(wlf, D, p, gap_nm, n_medium, species,
+                                backend, n_sizes)
+        # extra non-negative column: the scattering pedestal (amplitude linear,
+        # profiled with the species weights; only the exponent is nonlinear)
+        B = np.column_stack([B, _sca_shape(wlf, n_sca)])
         w, _ = nnls(B, yf)
         return B, w
 
@@ -94,25 +115,25 @@ def fit_spectrum(
 
     res = least_squares(
         residual,
-        x0=[d0, p0],
-        bounds=([d_bounds[0], p_bounds[0]], [d_bounds[1], p_bounds[1]]),
+        x0=[d0, p0, 2.0],
+        bounds=([d_bounds[0], p_bounds[0], 0.0],
+                [d_bounds[1], p_bounds[1], 6.0]),
         method="trf",
-        x_scale=[10.0, 5.0],
+        x_scale=[10.0, 5.0, 2.0],
         diff_step=1e-3,
     )
-    D_hat, p_hat = res.x
+    D_hat, p_hat, nsca_hat = res.x
     B, w = weights_for(res.x)
     model = B @ w
-    m, n = len(yf), 2
+    a_sca = float(w[-1])
+    B, w = B[:, :-1], w[:-1]   # species-only blocks for the fraction math
+    m, n = len(yf), 3
     dof = max(m - n, 1)
     s2 = 2.0 * res.cost / dof
-    # theta covariance from Gauss-Newton approx
-    try:
-        JTJ = res.jac.T @ res.jac
-        cov_theta = np.linalg.inv(JTJ) * s2
-        D_sd, p_sd = np.sqrt(np.abs(np.diag(cov_theta)))
-    except np.linalg.LinAlgError:
-        D_sd = p_sd = np.nan
+    # theta covariance from Gauss-Newton approx (pinv: n_sca is a flat
+    # direction whenever the profiled pedestal amplitude is ~0)
+    cov_theta = np.linalg.pinv(res.jac.T @ res.jac) * s2
+    D_sd, p_sd, _ = np.sqrt(np.abs(np.diag(cov_theta)))
 
     # weight covariance from linear model at theta*
     resid = model - yf
@@ -174,4 +195,6 @@ def fit_spectrum(
         residual_rms=float(np.sqrt(np.mean(resid**2))),
         success=bool(res.success),
         message=res.message,
+        a_sca=a_sca,
+        n_sca=float(nsca_hat),
     )
