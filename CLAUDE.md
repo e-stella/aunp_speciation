@@ -99,6 +99,29 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
    γ_S = 0.143 eV at D=12.9) but trades against D/poly in fits — with it the
    fitted D falls to ~10.5–10.8 vs TEM 12.9; consider calibrating A_surf on a
    TEM-pinned sample.
+   **WIDTH DECOMPOSITION MEASURED (2026-07-12,
+   `scripts/width_decomposition.py`, fig19; CTAC per-particle TEM):** the
+   TEM-pinned model band is BROADER than clean-monomer data at 29–42 nm and
+   NARROWER at 8 nm, and the two ends calibrate the two damping terms
+   separately:
+   (a) 29–42 nm: swapping the Gaussian(raw TEM sd) for the true per-particle
+   histogram changes the width by ~nothing (polydispersity is NOT the width
+   driver at these sizes); scaling the BULK Drude damping down
+   (γ_eff = s·γ_bulk + γ_S, s ≲ 0.2, degenerate below that) closes the
+   +2.5 nm FW75 surplus and halves RMS 5→2–3%; adding the −2.7 nm offset
+   (#9) reaches RMS 1.7–2.3% (from 3.7–5.1% baseline). Physical reading:
+   J&C's evaporated-film ε₂ over-damps single-crystal-like colloids —
+   equivalent to ε₂ ~15% (550 nm) to ~35% (650 nm) too high; do not read
+   s literally as γ_bulk→2 meV (it proxies any ε₂ overestimate; Reddy's
+   single-vs-poly factor ~6 is the anchor).
+   (b) 8 nm CTAC: the opposite — data BROADER than the A=0.25 model by
+   ~10 nm FW75; A_surf calibrates to ≈0.5–0.8 (best-RMS 0.5, best-width
+   0.75) — chemical-interface damping above Berciaud's 0.25 for this
+   chemistry/size. ⇒ γ_S calibration belongs at small D (where it
+   dominates), bulk-ε₂ calibration at large D. NOT yet adopted into the
+   production basis: adopting global (s, A_surf) requires out-of-sample
+   validation (calibrate on CTAC, test on the seeded-growth citrate
+   samples) — queued.
 3. **Cluster polydispersity** is applied approximately (size-scaled). Refine
    with per-size cluster runs if needed.
 4. Cluster geometry set is minimal (dimer, linear/triangular trimer). Extend
