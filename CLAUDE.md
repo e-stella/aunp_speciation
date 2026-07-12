@@ -215,6 +215,22 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
    500–540 nm window just like Etchegoin — do not use either for calibration.
    `fit_real.py` sets `'jc'`; caches record their `gold_model` and `fit_real`
    refuses a mismatched cache.
+   **RE-ANCHORED 2026-07-12 (`scripts/dielectric_reanchor.py`, fig18): jc
+   carries a +2.7 ± 1.1 nm RED bias against verified-clean monomers.** Tested
+   against NINE clean anchors (CTAC 7.8–42 nm + seeded-growth citrate
+   Oct/Nov 2024; two chemistries): jc +2.7±1.1 / reddy_p200 +3.2±0.9 /
+   etchegoin +7.4 / bb +7.9 / yakubovsky25 −4.3. jc REMAINS the best fixed
+   table (do not switch), but the original C500 anchor match was likely
+   flattered by C500's own aggregation red-shift (~15–30% aggregated gold) —
+   treat model-peak expectations for clean monomers as jc − ~2.7 nm.
+   Transferability (leave-one-out): the PEAK-SHIFT component of an empirical
+   correction transfers (residual +1.0 nm mean); a FULL-SHAPE multiplicative
+   c(λ) does NOT (LOO RMS worsens for 7/9 anchors; far-red ratios are
+   ill-conditioned) — for shape-critical work use measured endmember spectra
+   instead. Sizing consequence re-confirmed: shape-only D retrieval stays
+   information-limited below ~35 nm with or without the correction and with
+   poly pinned (a 22.9 nm sample fits at 7.8 nm); ≥38 nm is good to ~10%.
+   Absolute extinction (#10, Next-step E) remains the required rescue.
 10. **Single-spectrum size retrieval fails below ~35 nm — INDEPENDENTLY CONFIRMED,
     and the red tail biases even the Haiss rescue.** Validated on the CTAC size
     series (5 monomer samples w/ paired TEM: 7.8 / 29.2 / 31.5 / 37.9 / 42.0 nm):
