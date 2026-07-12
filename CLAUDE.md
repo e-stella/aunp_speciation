@@ -118,10 +118,21 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
    ~10 nm FW75; A_surf calibrates to ≈0.5–0.8 (best-RMS 0.5, best-width
    0.75) — chemical-interface damping above Berciaud's 0.25 for this
    chemistry/size. ⇒ γ_S calibration belongs at small D (where it
-   dominates), bulk-ε₂ calibration at large D. NOT yet adopted into the
-   production basis: adopting global (s, A_surf) requires out-of-sample
-   validation (calibrate on CTAC, test on the seeded-growth citrate
-   samples) — queued.
+   dominates), bulk-ε₂ calibration at large D. JOINT CALIBRATION
+   (`scripts/calibrate_damping.py`): ONE global pair (s=0.05, A_surf=0.6)
+   fits all five CTAC sizes simultaneously (mean RMS 4.6→2.5%) — the 1/R law
+   carries the size dependence; no per-size values needed.
+   **OUT-OF-SAMPLE TRANSFER TESTED (frozen CTAC pair → seeded-growth citrate
+   series, fig17): the −2.7 nm offset TRANSFERS (peak errors go from
+   +1..+4 to −3..+1, centered on 0), the damping pair does NOT** — the
+   calibrated (narrower) basis worsens the peak-region RMS on the cleanest
+   seeded samples (GNP39nm 7.3→10.4%): seeded-growth H₂O₂/citrate particles
+   are measurably MORE damped than CTAC ones, consistent with
+   defect-richer/multiply-twinned overgrowth. ⇒ (s, A_surf) are
+   PER-SYNTHESIS-ROUTE material parameters: calibrate once per route
+   (ligand sets A, crystallinity sets s); the plasmon width doubles as a
+   crystallinity probe. Production default remains uncalibrated
+   (s=1, A per caller) until per-route adoption is decided.
 3. **Cluster polydispersity** is applied approximately (size-scaled). Refine
    with per-size cluster runs if needed.
 4. Cluster geometry set is minimal (dimer, linear/triangular trimer). Extend

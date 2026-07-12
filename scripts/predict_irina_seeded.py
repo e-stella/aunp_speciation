@@ -29,12 +29,48 @@ import numpy as np
 from aunp_speciation import dielectric
 dielectric.use_gold_model("jc")
 from aunp_speciation.spectra import monomer_polydisperse
+from aunp_speciation.mie import mie_ab
+from aunp_speciation.dielectric import gold_epsilon, medium_index
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 IRINA = os.path.join(ROOT, "experimental", "Irina")
 OUT = os.path.join(ROOT, "outputs")
 A_SURF = 0.25
 WLM = np.arange(400.0, 1001.0, 1.0)      # model grid
+
+# CALIBRATED damping (frozen 2026-07-12, scripts/calibrate_damping.py):
+# gamma_eff = S_CAL*gamma_bulk + A_CAL*hbar*v_F/R, one global pair fitted
+# jointly on the five CTAC monomer samples (mean RMS 4.6% -> 2.5%), plus the
+# documented -2.7 nm offset (CLAUDE.md #9). The seeded-growth series below is
+# OUT-OF-SAMPLE for this calibration (different chemistry: citrate vs CTAC).
+S_CAL, A_CAL, SHIFT_CAL = 0.05, 0.6, 2.7
+_E_EV = 1239.842 / WLM
+_EPS_JC = gold_epsilon(WLM)
+_N_MED = medium_index("water", None).real
+_OM = getattr(dielectric, "_OMEGA_P_EV", 8.45)
+_G0 = getattr(dielectric, "_GAMMA_BULK_EV", 0.044)
+
+
+def _xsec_cal(D):
+    g = S_CAL * _G0 + A_CAL * 0.9215 / (D / 2.0)
+    eps = _EPS_JC + _OM**2/(_E_EV**2 + 1j*_G0*_E_EV) \
+        - _OM**2/(_E_EV**2 + 1j*g*_E_EV)
+    m = np.sqrt(eps) / _N_MED
+    C = np.zeros_like(WLM)
+    for i, l0 in enumerate(WLM):
+        k = 2.0 * np.pi * _N_MED / l0
+        a, b = mie_ab(m[i], k * D / 2.0)
+        n = np.arange(1, len(a) + 1)
+        C[i] = (2.0 * np.pi / k**2) * np.sum((2*n+1) * np.real(a + b))
+    return C
+
+
+def calibrated_model(D0, poly_pct):
+    sd = D0 * poly_pct / 100.0
+    ds = np.linspace(D0 - 3*sd, D0 + 3*sd, 15)
+    w = np.exp(-0.5*((ds - D0)/sd)**2); w /= w.sum()
+    y = np.sum([wi * _xsec_cal(d) for d, wi in zip(ds, w)], axis=0)
+    return np.interp(WLM, WLM - SHIFT_CAL, y)    # -2.7 nm offset
 
 # TEM inputs (mean nm, sd nm) transcribed from *_TEM_measurements files.
 # 'names' maps the CSV column headers (synthesis TARGET names) to the
@@ -86,8 +122,8 @@ fig, axes = plt.subplots(2, 2, figsize=(12, 8))
 COLS = ("#D62728", "#2CA02C", "#17BECF", "#9467BD")   # match the slides
 
 print(f"{'set':9s} {'sample':14s} {'TEM D':>7s} {'poly%':>6s} "
-      f"{'peak data':>10s} {'peak model':>11s} {'dpk':>5s} "
-      f"{'A700/pk data':>13s} {'model':>6s}")
+      f"{'pk data':>10s} {'dpk_bas':>6s} {'dpk_cal':>6s} "
+      f"{'A700 d':>8s} {'bas':>6s} {'cal':>6s} {'RMSb':>6s} {'RMSc':>6s}")
 for row, (label, S) in enumerate(SETS.items()):
     hdr, wl, Y = load_utf16_tsv(os.path.join(IRINA, S["csv"]))
     axd, axm = axes[row]
@@ -101,21 +137,32 @@ for row, (label, S) in enumerate(SETS.items()):
         y = y / y[pk_idx].max()
         axd.plot(wl[m], y, color=col, lw=1.2,
                  label=f"{disp} (TEM {D:.1f}±{sd:.1f})")
-        # zero-free-parameter prediction
+        # zero-free-parameter predictions: baseline stack + CTAC-calibrated
         mod = monomer_polydisperse(WLM, D, poly, "water", None, True, A_SURF)
         mod = mod / mod.max()
+        mcal = calibrated_model(D, poly)
+        mcal = mcal / mcal.max()
         mfit = (wl >= 400) & (wl <= 1000)
         yd = Y[mfit, i] / Y[mfit, i].max()
         axm.plot(wl[mfit], yd, "-", lw=1.0, color=col, alpha=0.45)
-        axm.plot(WLM, mod, "--", color=col, lw=1.5)
+        axm.plot(WLM, mod, ":", color=col, lw=1.0, alpha=0.8)
+        axm.plot(WLM, mcal, "--", color=col, lw=1.5)
         pk_d = peak_of(wl[mfit], yd)
         pk_m = peak_of(WLM, mod)
+        pk_c = peak_of(WLM, mcal)
         i700d = np.argmin(np.abs(wl[mfit] - 700.0))
-        r700d = yd[i700d]
-        r700m = mod[np.argmin(np.abs(WLM - 700.0))]
+        i700m = np.argmin(np.abs(WLM - 700.0))
+        # RMS on peak-normalized curves, max(lo,450)-700 nm
+        lo = max(S_ANCH := 450.0, 480.0 if label.startswith("Nov") or label.startswith("Oct") else 450.0)
+        band_d = (wl[mfit] >= lo) & (wl[mfit] <= 700)
+        band_m = (WLM >= lo) & (WLM <= 700)
+        ydb = np.interp(WLM[band_m], wl[mfit][band_d], yd[band_d])
+        rms_b = 100*np.sqrt(np.mean((mod[band_m]/mod[band_m].max() - ydb/ydb.max())**2))
+        rms_c = 100*np.sqrt(np.mean((mcal[band_m]/mcal[band_m].max() - ydb/ydb.max())**2))
         print(f"{label:9s} {disp:14s} "
-              f"{D:7.2f} {poly:6.1f} {pk_d:10.0f} {pk_m:11.0f} "
-              f"{pk_m-pk_d:+5.0f} {r700d:13.3f} {r700m:6.3f}")
+              f"{D:7.2f} {poly:6.1f} {pk_d:10.0f} {pk_m-pk_d:+6.0f} {pk_c-pk_d:+6.0f} "
+              f"{yd[i700d]:8.3f} {mod[i700m]:6.3f} {mcal[i700m]:6.3f} "
+              f"{rms_b:6.2f} {rms_c:6.2f}")
     axd.set_xlabel("wavelength (nm)")
     axd.set_ylabel("extinction / peak")
     axd.set_title(f"({'ac'[row]}) {label} data replotted from CSV "
@@ -130,10 +177,12 @@ for row, (label, S) in enumerate(SETS.items()):
     from matplotlib.lines import Line2D
     axm.legend(handles=[
         Line2D([], [], color="0.4", lw=1.0, alpha=0.6, label="solid = measured"),
-        Line2D([], [], color="0.2", lw=1.5, ls="--", label="dashed = model")],
-        frameon=False, fontsize=7.5)
-fig.suptitle("Seeded-growth GNP series: CSV replot vs pptx + zero-free-"
-             "parameter Mie prediction (jc, γ_S A=0.25, TEM-pinned D & poly)",
+        Line2D([], [], color="0.2", lw=1.0, ls=":", label="dotted = baseline model"),
+        Line2D([], [], color="0.2", lw=1.5, ls="--",
+               label="dashed = CTAC-calibrated (out-of-sample)")],
+        frameon=False, fontsize=7)
+fig.suptitle("Seeded-growth GNP series: TEM-pinned zero-free-parameter predictions — "
+             "baseline vs CTAC-calibrated damping (s=0.05, A=0.6, −2.7 nm; out-of-sample)",
              fontsize=10)
 fig.tight_layout()
 fig.savefig(os.path.join(OUT, "fig17_irina_seeded.png"))
