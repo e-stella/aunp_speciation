@@ -36,16 +36,21 @@ OUT = os.path.join(ROOT, "outputs")
 A_SURF = 0.25
 WLM = np.arange(400.0, 1001.0, 1.0)      # model grid
 
-# TEM inputs (mean nm, sd nm) transcribed from *_TEM_measurements files
+# TEM inputs (mean nm, sd nm) transcribed from *_TEM_measurements files.
+# 'names' maps the CSV column headers (synthesis TARGET names) to the
+# TEM-anchored display names used on the slides' size-analysis pages.
 SETS = {
     "Oct 2024": dict(
         csv="Scan_10_22_2024_5_43_15_PM.csv",
         tem={"GNP12nm": (11.55, 0.91), "GNP20nm": (21.58, 2.18),
-             "GNP40nm": (41.59, 3.34), "GNP60nm": (61.27, 4.50)}),
+             "GNP40nm": (41.59, 3.34), "GNP60nm": (61.27, 4.50)},
+        names={}),
     "Nov 2024": dict(
         csv="Scan_11_16_2024_4_37_22_PM.csv",
         tem={"Seed 1(Abs)": (10.85, 0.83), "30nm 1(Abs)": (22.90, 1.46),
-             "40nm 1(Abs)": (38.52, 3.37), "60nm 1(Abs)": (54.61, 4.89)}),
+             "40nm 1(Abs)": (38.52, 3.37), "60nm 1(Abs)": (54.61, 4.89)},
+        names={"Seed 1(Abs)": "GNP11nm (seed)", "30nm 1(Abs)": "GNP23nm",
+               "40nm 1(Abs)": "GNP39nm", "60nm 1(Abs)": "GNP55nm"}),
 }
 
 
@@ -88,14 +93,14 @@ for row, (label, S) in enumerate(SETS.items()):
     axd, axm = axes[row]
     for i, (name, col) in enumerate(zip(hdr, COLS)):
         D, sd = S["tem"][name]
+        disp = S["names"].get(name, name.replace("(Abs)", "").strip())
         poly = 100 * sd / D
         m = (wl >= 300) & (wl <= 1000)
         y = Y[m, i]
         pk_idx = (wl[m] >= 400) & (wl[m] <= 700)
         y = y / y[pk_idx].max()
         axd.plot(wl[m], y, color=col, lw=1.2,
-                 label=f"{name.replace('(Abs)','').strip()} "
-                       f"(TEM {D:.1f}±{sd:.1f})")
+                 label=f"{disp} (TEM {D:.1f}±{sd:.1f})")
         # zero-free-parameter prediction
         mod = monomer_polydisperse(WLM, D, poly, "water", None, True, A_SURF)
         mod = mod / mod.max()
@@ -108,7 +113,7 @@ for row, (label, S) in enumerate(SETS.items()):
         i700d = np.argmin(np.abs(wl[mfit] - 700.0))
         r700d = yd[i700d]
         r700m = mod[np.argmin(np.abs(WLM - 700.0))]
-        print(f"{label:9s} {name.replace('(Abs)','').strip():14s} "
+        print(f"{label:9s} {disp:14s} "
               f"{D:7.2f} {poly:6.1f} {pk_d:10.0f} {pk_m:11.0f} "
               f"{pk_m-pk_d:+5.0f} {r700d:13.3f} {r700m:6.3f}")
     axd.set_xlabel("wavelength (nm)")
