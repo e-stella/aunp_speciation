@@ -160,9 +160,28 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
    residual misfit is red-asymmetric, a real aggregation signature, while
    the same recalibrated monomer nails every clean sample (Nov23 0%,
    Nov39 7%, RMS all improve; GNP55 stays 100% — negative controls pass).
-   CDA caveat: it under-couples, so 40–68% are UPPER bounds (more CDA
-   aggregate needed per unit red intensity); T-matrix re-fit is the
-   remaining step for quantitative Oct fractions.
+   **EXACT T-MATRIX RE-FIT DONE (2026-07-13,
+   `scripts/build_seeded_tmatrix_basis.py` + `fit_speciation_seeded_exact.py`,
+   fig22): the Oct fractions HOLD OR RISE under exact optics.** Per-sample
+   exact bases (dimer/trimer_linear/tetramer_linear — tetramer added to
+   GEOMETRIES; calibrated damping baked in; caches
+   outputs/seeded_tmatrix_basis_*.npz record s_bulk; probe-chosen lmax per
+   gap): GNP20 **31%** agg gold (31–38% across gaps 1/2/3.5; RMS halves vs
+   CDA 0.066→0.038), GNP40 **46%** (41–46%), GNP60 **81%** (75–81%), GNP55
+   100% (RMS 0.108 — its smooth 580 plateau is BEYOND any single-gap
+   dimer/trimer/tetramer basis: needs motif+gap distributions / bigger
+   flocs; don't quote a fraction). ⚠ The intuited "CDA under-couples ⇒ its
+   fractions are upper bounds" was FALSIFIED at large D: exact ≥ CDA for
+   GNP40/60 — exact chain modes redistribute red intensity in shaped bands,
+   not a uniform boost; quote the CDA↔exact spread as the backend
+   systematic. GNP60's exact fit shows a ~620 nm chain-mode bump the smooth
+   data lacks (single-motif discreteness, limitation #4). NUMERICAL LESSONS
+   (in build_seeded_tmatrix_basis.py): (a) treams chain (trimer/tetramer)
+   interaction solves go UNSTABLE (negative/spiky Cext) at lmax=12 for
+   gap≤1 nm even where the dimer is fine — the dimer convergence proxy does
+   NOT catch it; cap chains at lmax=10 near contact and check positivity;
+   (b) gap-1 bonding-mode structure is REAL and sharp — build those columns
+   on a 5 nm wl grid (per-gap `wl_gap<g>` axis in the cache).
 3. **Cluster polydispersity** is applied approximately (size-scaled). Refine
    with per-size cluster runs if needed.
 4. Cluster geometry set is minimal (dimer, linear/triangular trimer). Extend
@@ -604,6 +623,12 @@ venv for the exact T-matrix backend (treams needs numpy 1.26 / scipy 1.11).
 - `python scripts/fit_speciation_seeded.py` — fig21; the HANDOFF.md
   deliverable: TEM-pinned monomer/dimer/trimer NNLS on all 8 seeded samples,
   first-cut (s=1, A=0.25) vs recalibrated (1.75, 1.0, −2.7 nm). Verdict in #2.
+- `mstm-env/bin/python scripts/build_seeded_tmatrix_basis.py --probe|--sample
+  SID` — exact per-sample cluster bases for the 4 aggregated seeded samples
+  (calibrated damping baked in; --probe first: lmax convergence + the gap-1
+  chain-instability guard). ~30–75 min per sample; shard and run in parallel.
+- `python scripts/fit_speciation_seeded_exact.py` — fig22; CDA-vs-exact
+  speciation on those caches, with per-gap sensitivity. Results in #2.
 - `python scripts/fit_real.py [file.csv] [--range MIN MAX] [--normalize
   {none,density,mult_400nm}] [--anchor NM] [--fixed-eps]` — fig 8; load a real
   UV-Vis file and fit with gold ε(T) + water n(T) per temperature (--fixed-eps

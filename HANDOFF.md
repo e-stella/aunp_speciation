@@ -104,7 +104,35 @@ re-fit with the route pair:
 Guardrails: Nov clean samples stay clean with improved RMS; GNP55/60 stay
 aggregated (extra damping did not eat real signal).
 
-## Caveat on the absolute Oct fractions
+## Exact T-matrix re-fit (same day; fig22 — supersedes the caveat below)
+Per-sample exact bases (dimer + linear trimer + linear tetramer, calibrated
+damping baked in, gap grids {1,2,3.5} nm at GNP20 / {2,3.5} at the larger
+three, lmax from a convergence probe):
+
+| sample | agg CDA | agg EXACT (best gap) | gap range | fit RMS CDA→exact |
+|--------|:---:|:---:|:---:|:---:|
+| oct_GNP20 | 38% | **31%** | 31–38% | 0.066 → 0.038 |
+| oct_GNP40 | 38% | **46%** | 41–46% | 0.041 → 0.030 |
+| oct_GNP60 | 67% | **81%** | 75–81% | 0.036 → 0.045 |
+| nov_GNP55 | 100% | 100% | — | 0.134 → 0.108 |
+
+- **GNP20: ~⅓ of the gold is aggregated, robust across backends and gaps**
+  (CDA 38–45%, exact 31–38%) — the quantitative version of the verdict.
+- ⚠ The earlier "CDA fractions are upper bounds" reasoning was WRONG at
+  large D: exact ≥ CDA for GNP40/60. Exact chain modes place red intensity
+  in shaped bands rather than uniformly boosting the tail; quote the
+  CDA↔exact spread as the backend systematic.
+- GNP55 has no quotable fraction: its smooth 580 nm plateau is beyond any
+  single-gap dimer/trimer/tetramer basis (RMS 0.108, structured residual) —
+  consistent with the experimenter's own "aggregated, redo" flag; needs
+  motif/gap distributions or DLS, not a longer basis.
+- Numerical notes for reuse: treams chain solves go unstable (negative
+  Cext) at lmax=12 for gap≤1 nm even where the dimer converges — cap chains
+  at lmax=10 near contact; gap-1 bonding structure is real and sharp, build
+  those columns at 5 nm wavelength sampling.
+
+## Caveat on the absolute Oct fractions [SUPERSEDED by the exact re-fit
+above — kept for the record]
 CDA under-couples at near-contact, so 40–68% are UPPER bounds (CDA needs
 more aggregate per unit red intensity). The T-matrix re-fit (your next-step
 2) is still the missing piece for quantitative numbers — but the

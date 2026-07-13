@@ -36,11 +36,18 @@ def trimer_triangular(diameter_nm, gap_nm):
     return np.array([[0.0, 0.0, 0.0], [s, 0.0, 0.0], [s / 2, s * np.sqrt(3) / 2, 0.0]])
 
 
+def tetramer_linear(diameter_nm, gap_nm):
+    s = diameter_nm + gap_nm
+    return np.array([[0.0, 0.0, 0.0], [s, 0.0, 0.0],
+                     [2 * s, 0.0, 0.0], [3 * s, 0.0, 0.0]])
+
+
 GEOMETRIES = {
     "monomer": lambda D, g: np.array([[0.0, 0.0, 0.0]]),
     "dimer": dimer,
     "trimer_linear": trimer_linear,
     "trimer_triangular": trimer_triangular,
+    "tetramer_linear": tetramer_linear,
 }
 
 
