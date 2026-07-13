@@ -321,11 +321,34 @@ def _drude_damping_delta(wavelength_nm, gamma_new_ev):
     return _OMEGA_P_EV**2 * (inv(_GAMMA_BULK_EV) - inv(gamma_new_ev))
 
 
+# --- per-synthesis-route bulk-damping scale 's' (CLAUDE.md #2) ---------------
+# gamma_eff = s*gamma_bulk(T) + gamma_S. s<1 says the tabulated evaporated-film
+# eps2 over-damps this route's colloids (single-crystal-like); s proxies ANY
+# eps2 overestimate, not a literal gamma_bulk. Calibrated jointly with A_surf,
+# once per synthesis route (scripts/calibrate_damping*.py) — the pair must be
+# used together. Default 1.0 = uncalibrated production. NB: T-matrix caches
+# bake damping in at BUILD time and do not record s — a cache built at s=1
+# does not match s!=1; use the CDA backend with a calibrated s, or rebuild.
+_BULK_DAMPING_SCALE = 1.0
+
+
+def set_bulk_damping_scale(s):
+    """Set the per-route crystallinity scale s (see block comment above)."""
+    global _BULK_DAMPING_SCALE
+    _BULK_DAMPING_SCALE = float(s)
+
+
+def current_bulk_damping_scale():
+    return _BULK_DAMPING_SCALE
+
+
 def size_damping_correction(wavelength_nm, diameter_nm, A_surf=1.0):
     """Delta-epsilon added to bulk eps for surface-scattering damping
-    (gamma_S = A*hbar*v_F/R — temperature-INDEPENDENT)."""
+    (gamma_S = A*hbar*v_F/R — temperature-INDEPENDENT). Includes the
+    per-route bulk scale s (set_bulk_damping_scale)."""
     g_size = A_surf * _HBAR_VF_EVNM / (diameter_nm / 2.0)
-    return _drude_damping_delta(wavelength_nm, _GAMMA_BULK_EV + g_size)
+    return _drude_damping_delta(
+        wavelength_nm, _BULK_DAMPING_SCALE * _GAMMA_BULK_EV + g_size)
 
 
 def thermal_damping_correction(wavelength_nm, temperature_C):
@@ -403,11 +426,12 @@ def gold_epsilon_sized(wavelength_nm, diameter_nm, A_surf=1.0,
                        temperature_C=None):
     """Size- and temperature-corrected gold permittivity.
 
-    Single retune with gamma_new = gamma_bulk(T) + gamma_S — the correct
+    Single retune with gamma_new = s*gamma_bulk(T) + gamma_S — the correct
     composition (the two deltas are NOT additive; inv() is nonlinear).
+    s is the per-route bulk scale (set_bulk_damping_scale, default 1).
     """
     g_size = A_surf * _HBAR_VF_EVNM / (diameter_nm / 2.0)
-    g_new = gamma_bulk_ev(temperature_C) + g_size
+    g_new = _BULK_DAMPING_SCALE * gamma_bulk_ev(temperature_C) + g_size
     return gold_epsilon(wavelength_nm) + _drude_damping_delta(wavelength_nm, g_new)
 
 

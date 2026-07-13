@@ -133,6 +133,36 @@ This reframes UV-Vis width as *polydispersity + speciation*, not size alone.
    (ligand sets A, crystallinity sets s); the plasmon width doubles as a
    crystallinity probe. Production default remains uncalibrated
    (s=1, A per caller) until per-route adoption is decided.
+   **SEEDED-GROWTH ROUTE CALIBRATED (2026-07-13,
+   `scripts/calibrate_damping_seeded.py`, fig20; per HANDOFF.md): (s=1.75,
+   A_surf=1.0) + the −2.7 nm offset**, jointly on the four verified-clean
+   monomers (Oct GNP12 + Nov 11/23/39 nm; hand-picked per-particle TEM from
+   ../tem-particle-metrics/outputs/dm3/gt/): clean-set mean RMS 7.74% (s=1,
+   A=0.25 baseline) / 7.92% (CTAC pair) → 3.00%. OPPOSITE direction from
+   CTAC: this route is MORE damped than jc bulk (s>1 proxies ε₂ ABOVE the
+   evaporated film — defect-rich/multiply-twinned H₂O₂ overgrowth — where
+   CTAC was single-crystal-like at s=0.05), confirming fig17's transfer
+   failure and the per-route reading. The s/A split sits on a shallow
+   diagonal ridge (γ_eff is the constrained combination: ≈0.23 eV at
+   11.5 nm, ≈0.16 eV at 23 nm across variants; GNP12-only rails to s=3.0 —
+   s is a flat direction at small D); no Oct-vs-Nov batch split (nov-only
+   picks the same ridge, GNP12 near its optimum). Peak residuals after
+   −2.7 nm: −1..+2 nm — no medium-index flag from the unpurified matrix.
+   API: `dielectric.set_bulk_damping_scale(s)` (module-level like
+   `use_gold_model`; default 1.0 = old behavior; applies inside
+   `gold_epsilon_sized`/`size_damping_correction`; NB T-matrix caches bake
+   damping at build time and do NOT record s — rebuild or use CDA).
+   **SPECIATION VERDICT (`scripts/fit_speciation_seeded.py`, fig21;
+   TEM-pinned NNLS, mirrors ../tem-particle-metrics fit_speciation.py):
+   the Oct GNP12 13% "aggregation" was the line-width artifact (13→0%,
+   likewise Nov11 6→0%), but Oct GNP20 does NOT collapse (41→45%; 41% at
+   the GNP12-only ridge point) and GNP40/60 are stable (40/68%) — their
+   residual misfit is red-asymmetric, a real aggregation signature, while
+   the same recalibrated monomer nails every clean sample (Nov23 0%,
+   Nov39 7%, RMS all improve; GNP55 stays 100% — negative controls pass).
+   CDA caveat: it under-couples, so 40–68% are UPPER bounds (more CDA
+   aggregate needed per unit red intensity); T-matrix re-fit is the
+   remaining step for quantitative Oct fractions.
 3. **Cluster polydispersity** is applied approximately (size-scaled). Refine
    with per-size cluster runs if needed.
 4. Cluster geometry set is minimal (dimer, linear/triangular trimer). Extend
@@ -568,6 +598,12 @@ venv for the exact T-matrix backend (treams needs numpy 1.26 / scipy 1.11).
   identifiability screen (per-gold cosine matrix + NNLS retrieval vs noise;
   system env, reuses the ctac cache). Pre-registration for the mixing
   experiment; results recorded in #10.
+- `python scripts/calibrate_damping_seeded.py` — fig20; seeded-growth-route
+  (s, A_surf) grid calibration on the four verified-clean monomers (needs
+  ../tem-particle-metrics for the per-particle TEM gt). ~3 min; see #2.
+- `python scripts/fit_speciation_seeded.py` — fig21; the HANDOFF.md
+  deliverable: TEM-pinned monomer/dimer/trimer NNLS on all 8 seeded samples,
+  first-cut (s=1, A=0.25) vs recalibrated (1.75, 1.0, −2.7 nm). Verdict in #2.
 - `python scripts/fit_real.py [file.csv] [--range MIN MAX] [--normalize
   {none,density,mult_400nm}] [--anchor NM] [--fixed-eps]` — fig 8; load a real
   UV-Vis file and fit with gold ε(T) + water n(T) per temperature (--fixed-eps
