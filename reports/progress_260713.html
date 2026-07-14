@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Mid-project progress report" />
+  <title>From TEM Micrograph to UV-Vis Speciation: an Automated Sizing and Optical-Physics Pipeline for Gold Nanoparticle Colloids</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="report.css" />
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">From TEM Micrograph to UV-Vis Speciation: an Automated
+Sizing and Optical-Physics Pipeline for Gold Nanoparticle Colloids</h1>
+<p class="author">Mid-project progress report</p>
+<p class="date">July 2026</p>
+</header>
+<h2
+id="why-this-matters-plain-language-summary-for-life-science-readers">Why
+this matters (plain-language summary for life-science readers)</h2>
+<p><strong>The problem, in one sentence.</strong> Gold nanoparticles are
+a workhorse of bionanotechnology — contrast agents, biosensors,
+drug-delivery cargo — and their usefulness depends on two numbers that
+are surprisingly hard to measure routinely: <strong>how big are the
+particles, and are they clumping together?</strong> Both are answered
+today by an expert spending hours at an electron microscope,
+hand-clicking a few hundred particles per sample. This project replaces
+that bottleneck with two automated tools and connects them, so a single
+cheap optical scan plus one microscope image yields size, size spread,
+and the fraction of gold that is aggregated.</p>
+<p><strong>Where it helps a biology lab.</strong> This work was built
+directly on data from the <strong>Dragnea lab (Indiana
+University)</strong>, which co-assembles <strong>virus-like particles
+(VLPs)</strong> — coat-protein shells of the brome mosaic virus — around
+gold-nanoparticle cargo, both as a route to engineered delivery vehicles
+and as a model system for how viruses package “fragmented” (multi-piece)
+cargo such as segmented genomes, multiple siRNAs, or several drug
+molecules [25,26]. The nanoparticle plays the cargo role precisely
+because gold is <em>visible</em>: it gives the electron-microscope
+contrast that lets the assembly be read particle-by-particle. Two
+features of that research make our tools a direct fit:</p>
+<ul>
+<li><strong>The whole biology is gated by nanoparticle
+<em>size</em>.</strong> Encapsulation is strongly size-selective —
+particles below a few nm are excluded, larger ones are preferentially
+packaged, and the <em>number</em> of nanoparticles per shell falls with
+their diameter [25,26]. The key evidence is a <strong>shift between two
+size distributions</strong> — the free nanoparticle stock versus the
+population actually encapsulated — and the lab establishes it by
+hand-counting <strong>300–500 particles per TEM sample</strong>, for
+<em>both</em> populations. Stage one below automates exactly that count:
+it turns a half-day of clicking into minutes, measures
+<strong>several-fold more particles</strong>, and gives the less
+outlier-biased distributions that decide whether a size-selection signal
+is even resolvable. Sharper size distributions in, sharper thermodynamic
+conclusions out.</li>
+<li><strong>Assembly <em>is</em> a speciation equilibrium — the same
+problem this project models.</strong> The lab’s own theory describes
+co-assembly as a mass-action balance between <strong>free nanoparticles,
+nanoparticle–protein complexes, and capsids holding a variable number of
+packed cores</strong> [26] — and inside a multi-core VLP those cores sit
+as <strong>adjacent linear or clustered arrays</strong> against the
+shell wall [25], currently resolved only by cryo-electron tomography.
+That is precisely the situation our optical model was built for: gold
+particles packed at contact couple plasmonically, and the strength of
+that coupling reports how many are clustered and how tightly — a
+<strong>non-destructive, in-solution, high-throughput readout of
+assembly/cluster state</strong> that could complement low-throughput
+cryo-EM. The coupling signal is quantitative at the ≥~10 nm sizes
+typical of single-core AuNP–VLP work and of routine colloid QC;
+extending it to the few-nm fragmented cargo is a natural next step
+rather than a solved capability today.</li>
+</ul>
+<p>In short, the two measurements this class of nanoparticle-cargo and
+VLP research needs on every batch are <strong>throughput</strong> —
+automated sizing that scales to thousands of particles across both free
+and assembled populations — and <strong>aggregate/cluster
+inference</strong> — a quantitative clustering readout from a one-minute
+optical scan, grounded in the same equilibrium picture the assembly
+itself obeys. Both now come out of one connected pipeline, with stated
+error bars and honest failure flags, and the absolute-extinction
+concentration measurement the lab already runs [19] is the anchor that
+ties them together. The technical report follows.</p>
+<h2 id="summary">1. Summary</h2>
+<p>We have built an end-to-end pipeline that starts at a raw
+electron-microscope image and ends at a quantitative statement about a
+colloid’s state in solution. Stage one measures <strong>every</strong>
+gold nanoparticle in a TEM micrograph automatically; stage two feeds
+that size distribution into a first-principles optical model that
+predicts the UV-Vis spectrum with <strong>zero fitted
+parameters</strong>; stage three reads the <em>deviation</em> between
+prediction and measurement for what it physically is — line-width
+chemistry and <strong>aggregation</strong>. Four results define where we
+stand:</p>
+<ol type="1">
+<li><strong>Automated TEM sizing is validated.</strong> On all eight of
+the lab’s samples the automated mean diameter agrees with hand-picked
+measurements to within ±6% (mostly ±3%) while measuring <strong>1.6–6.4×
+more particles</strong>; a foundation-model segmentation tier correctly
+separates touching particles inside aggregates that defeat classical
+thresholding.</li>
+<li><strong>TEM size alone predicts the spectrum of a clean
+sol.</strong> For well-dispersed samples the predicted plasmon peak
+lands within a few nanometers of the measurement with nothing fitted —
+and the automated sizes drive the physics exactly as well as manual
+counting (peaks within 1 nm). Where the prediction fails (the two
+aggregated samples), the failure <em>is</em> the aggregation signature
+the project exists to quantify.</li>
+<li><strong>Line width is a per-synthesis-route material property, and
+with it calibrated, speciation becomes quantitative.</strong> A
+two-parameter damping law calibrated on verified-clean monomers reduces
+model-data mismatch ~2.5× per route; CTAC-grown and seeded-growth
+H₂O₂/citrate particles land on <strong>opposite sides of textbook
+gold</strong> (s = 0.05 vs 1.75) — plasmon width doubles as a
+crystallinity/interface probe. With the calibration in place, a
+physically-pure 12 nm control that previously read a spurious 13%
+“aggregation” now reads <strong>0%</strong>, while the anomalous 20 nm
+batch keeps a real <strong>~⅓ of its gold in small clusters</strong>
+(31–38% across model choices) — answering the question the PIs posed
+about that batch. The 40/60 nm batches fit at ≈46% and ≈81%; the flagged
+“55 nm” batch is beyond the small-cluster regime entirely.</li>
+<li><strong>The temperature series shows no thermal monomer⇌dimer signal
+— but two real, unexplained observables remain.</strong> After
+correcting a normalization pitfall (evaporation, ~5.6% over the run) and
+subtracting measured blanks, the 13 nm citrate/TEG heating/cooling
+series shows an isosbestic-like crossing that <strong>drifts</strong>
+544→568 nm (a fixed two-state equilibrium cannot produce this; an
+evolving cluster geometry can [21]), and a flat, reversible scattering
+pedestal (~15% of peak) that survives every instrumental exclusion we
+could test. A DLS ramp or filtration control is the decisive lab
+experiment.</li>
+</ol>
+<h2 id="motivation">2. Motivation</h2>
+<p>Manual TEM sizing is slow, samples relatively few particles, and its
+histogram widths are inflated by whichever outliers a person happens to
+click. Worse, two batches that look identical by hand-measured histogram
+can behave completely differently in solution — because one is
+aggregating, and a dried-grid histogram cannot see it. Conversely, an
+honest UV-Vis “size” readout is confounded by aggregation and by
+chemistry-dependent line width. The goal is an instrument-grade chain:
+an <em>unbiased, high-n</em> per-particle measurement that reproduces
+trusted hand measurements, plus an inverse optical model that, given a
+routine UV-Vis spectrum, reports nominal size, size spread, and
+<strong>speciation</strong> — the fraction of gold bound in small
+clusters — with stated uncertainties and honest failure flags. The
+division of labor that emerged from this work: <strong>TEM pins the
+size; the spectrum then yields the aggregated fraction as a stable
+linear readout.</strong></p>
+<h2 id="stage-one-automated-tem-sizing-image-per-particle-table">3.
+Stage one — automated TEM sizing (image → per-particle table)</h2>
+<p>The tool reads native Gatan dm3 micrographs directly
+(RosettaSciIO/HyperSpy [7]); pixel calibration comes from file metadata,
+so no burned-in scale bar is needed and the calibration is exact. The
+present dataset is 47 frames across 8 samples (Oct 2024: GNP12/20/40/60;
+Nov 2024: seed-11/23/39/55). Segmentation has two interchangeable tiers
+that emit the identical per-particle table (diameter, area, circularity,
+aspect ratio, shape class, touching-group flag):</p>
+<ul>
+<li><strong>Tier 1 — classical</strong> (no GPU, ~0.5 s/image):
+background flattening → Otsu threshold [1] → distance-transform
+watershed [2] with a rod-aware neck-merge, built on scikit-image [3].
+Accurate on well-dispersed fields; merges particles inside dense
+aggregates, as expected.</li>
+<li><strong>Tier 2 — foundation model</strong> (~6 s/image on a laptop
+GPU): NP-SAM [6], a nanoparticle-EM-tuned wrapper around the fast
+Segment-Anything variant FastSAM [5] (SAM [4]). It recognizes particles
+by learned shape/edge features and <strong>separates touching particles
+inside clusters</strong>; a physics-based “ghost” filter removes
+background false positives.</li>
+<li><strong>Human-in-the-loop QC:</strong> segmentation is never blindly
+trusted — a one-click reviewer lets a person drop any detection, with
+statistics recomputed live; decisions are stored separately and never
+overwrite the machine output.</li>
+</ul>
+<figure>
+<img
+src="/Users/eskoh/Documents/Projects/tem-particle-metrics/outputs/dm3/tier_compare_nov55.png"
+style="width:100.0%"
+alt="Same aggregated sample (Nov “55 nm”). Left: tier-1 classical segmentation merges touching particles into oversized blobs (mean 65 nm, sd 31 vs a true 54.6 ± 4.9 nm). Right: tier-2 (NP-SAM/FastSAM) separates the individual particles (mean 54 nm, sd 8), recovering the true size." />
+<figcaption aria-hidden="true">Same aggregated sample (Nov “55 nm”).
+<em>Left:</em> tier-1 classical segmentation merges touching particles
+into oversized blobs (mean 65 nm, sd 31 vs a true 54.6 ± 4.9 nm).
+<em>Right:</em> tier-2 (NP-SAM/FastSAM) separates the individual
+particles (mean 54 nm, sd 8), recovering the true size.</figcaption>
+</figure>
+<figure>
+<img
+src="/Users/eskoh/Documents/Projects/tem-particle-metrics/outputs/dm3/size_comparison.png"
+style="width:100.0%"
+alt="Size distributions: automated tier-2 (red) vs hand-picked (grey), per sample, from the dm3 micrographs. Dashed lines are the means." />
+<figcaption aria-hidden="true">Size distributions: automated tier-2
+(red) vs hand-picked (grey), per sample, from the dm3 micrographs.
+Dashed lines are the means.</figcaption>
+</figure>
+<p><strong>Validation against hand measurement.</strong> Both tiers ran
+over all 47 frames; aggregated distributions were compared to the lab’s
+hand-picked per-particle measurements (Figures 1–2):</p>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 29%" />
+<col style="width: 29%" />
+<col style="width: 29%" />
+</colgroup>
+<thead>
+<tr>
+<th>Sample</th>
+<th>Manual (n / mean±sd)</th>
+<th>Tier-1 (n / mean, Δ)</th>
+<th>Tier-2 (n / mean, Δ)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>oct GNP12</td>
+<td>439 / 11.6±0.9</td>
+<td>846 / 11.6 (+0%)</td>
+<td>803 / 12.2 (+5%)</td>
+</tr>
+<tr>
+<td>oct GNP20</td>
+<td>582 / 21.6±2.2</td>
+<td>937 / 21.9 (+1%)</td>
+<td>515 / 22.8 (+6%)</td>
+</tr>
+<tr>
+<td>oct GNP40</td>
+<td>137 / 41.6±3.3</td>
+<td>137 / 52.2 (+25%)</td>
+<td>262 / 42.5 (+2%)</td>
+</tr>
+<tr>
+<td>oct GNP60</td>
+<td>203 / 61.3±4.5</td>
+<td>101 / 96.1 (+57%)</td>
+<td>317 / 63.3 (+3%)</td>
+</tr>
+<tr>
+<td>nov seed-11</td>
+<td>307 / 10.9±0.8</td>
+<td>566 / 11.4 (+5%)</td>
+<td>532 / 11.5 (+6%)</td>
+</tr>
+<tr>
+<td>nov GNP23</td>
+<td>200 / 22.9±1.5</td>
+<td>711 / 24.2 (+6%)</td>
+<td>853 / 23.5 (+2%)</td>
+</tr>
+<tr>
+<td>nov GNP39</td>
+<td>102 / 38.5±3.4</td>
+<td>326 / 42.8 (+11%)</td>
+<td>423 / 39.4 (+2%)</td>
+</tr>
+<tr>
+<td>nov GNP55</td>
+<td>135 / 54.6±4.9</td>
+<td>507 / 68.5 (+25%)</td>
+<td>868 / 54.7 (+0%)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Tier-2 recovers the hand-picked mean within ±6% on every
+sample.</strong> The aggregated samples that defeat tier-1 (+11…+57%)
+all drop to +0…+3% with tier-2, while the automated extraction measures
+1.6–6.4× more particles (GNP55: 868 vs 135). The residual ~+5% on the
+small samples is a known, size-dependent mask-boundary effect (SAM
+outlines run slightly generous) with a calibration in progress.</p>
+<h2
+id="stage-two-closing-the-loop-zero-parameter-spectrum-prediction">4.
+Stage two — closing the loop: zero-parameter spectrum prediction</h2>
+<p>Each automated size distribution feeds single-particle Mie theory [8]
+with Johnson-Christy gold constants [9] in water — nothing fitted; both
+data and model normalized to their own plasmon peak (a pure shape
+test):</p>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 28%" />
+<col style="width: 27%" />
+<col style="width: 31%" />
+</colgroup>
+<thead>
+<tr>
+<th>Sample</th>
+<th style="text-align: center;">Measured peak (nm)</th>
+<th style="text-align: center;">SAM-predicted (Δ)</th>
+<th style="text-align: center;">Manual-predicted (Δ)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>oct GNP12</td>
+<td style="text-align: center;">521</td>
+<td style="text-align: center;">523 (+2)</td>
+<td style="text-align: center;">523 (+2)</td>
+</tr>
+<tr>
+<td>oct GNP20</td>
+<td style="text-align: center;">523</td>
+<td style="text-align: center;">524 (+1)</td>
+<td style="text-align: center;">524 (+1)</td>
+</tr>
+<tr>
+<td>oct GNP40</td>
+<td style="text-align: center;">528</td>
+<td style="text-align: center;">528 (+0)</td>
+<td style="text-align: center;">528 (+0)</td>
+</tr>
+<tr>
+<td>oct GNP60</td>
+<td style="text-align: center;">545</td>
+<td style="text-align: center;">537 (−8)</td>
+<td style="text-align: center;">536 (−9)</td>
+</tr>
+<tr>
+<td>nov seed-11</td>
+<td style="text-align: center;">518</td>
+<td style="text-align: center;">523 (+5)</td>
+<td style="text-align: center;">523 (+5)</td>
+</tr>
+<tr>
+<td>nov GNP23</td>
+<td style="text-align: center;">520</td>
+<td style="text-align: center;">524 (+4)</td>
+<td style="text-align: center;">524 (+4)</td>
+</tr>
+<tr>
+<td>nov GNP39</td>
+<td style="text-align: center;">525</td>
+<td style="text-align: center;">527 (+2)</td>
+<td style="text-align: center;">527 (+2)</td>
+</tr>
+<tr>
+<td>nov GNP55</td>
+<td style="text-align: center;"><strong>580</strong></td>
+<td style="text-align: center;"><strong>534 (−46)</strong></td>
+<td style="text-align: center;"><strong>533 (−47)</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Three observations: automated and hand-picked predictions are
+indistinguishable (within 1 nm) — the automated table drives the physics
+exactly as well as manual measurement; for well-dispersed samples the
+measured peak is predicted within a few nanometers from TEM size alone;
+and <strong>GNP60 and especially GNP55 fail by design</strong> — spectra
+far redder and broader than single-particle physics allows. That
+red-shift is the plasmonic-coupling signature of aggregation, and
+quantifying it is stages three and four below.</p>
+<figure>
+<img
+src="/Users/eskoh/Documents/Projects/tem-particle-metrics/outputs/dm3/spectra_prediction.png"
+style="width:100.0%"
+alt="UV-Vis predicted from the TEM size distribution (SAM red, manual blue) vs measured (black), normalized to peak. Well-dispersed samples match within a few nm; GNP55/60 show the aggregation red-shift the monomer model cannot reproduce." />
+<figcaption aria-hidden="true">UV-Vis predicted from the TEM size
+distribution (SAM red, manual blue) vs measured (black), normalized to
+peak. Well-dispersed samples match within a few nm; GNP55/60 show the
+aggregation red-shift the monomer model cannot reproduce.</figcaption>
+</figure>
+<h2 id="the-physics-engine">5. The physics engine</h2>
+<p>The optical forward model has three layers, all validated against
+internal and external references:</p>
+<ul>
+<li><strong>Optics.</strong> Single-sphere Mie theory [8] with size- and
+temperature-corrected gold permittivity; small clusters via two
+selectable backends: a fast coupled-dipole approximation (CDA), and an
+<strong>exact multipole T-matrix</strong> solver (<code>treams</code>
+[17]; equivalent to Mackowski-Mishchenko MSTM [18]). The exact backend
+reproduces Mie for a single sphere to machine precision and shows the
+CDA <strong>under-couples at near-contact</strong> — 1.6×/2.8× less
+dimer/trimer red-tail at 1 nm gap — so CDA is used for exploration and
+the T-matrix for quantitative work, cached on parameter grids for
+fitting speed.</li>
+<li><strong>Materials.</strong> Gold ε(λ) from Johnson &amp; Christy [9]
+(selected against Etchegoin [10], Brendel-Bormann, and Yakubovsky [11]
+alternatives; a nine-sample re-anchoring on verified-clean monomers
+measured a +2.7 ± 1.1 nm red bias, now applied as a fixed offset), Drude
+parameters from Olmon [12]; surface damping γ<sub>S</sub> =
+A·ħv<sub>F</sub>/R [13,14]; bulk damping γ(T) bracketed between Holstein
+electron-phonon theory [15] and Reddy’s measured film values [16]; water
+n(T) and k(λ) from standard tables [23,24]; solvent density/evaporation
+corrections in the data layer (§9).</li>
+<li><strong>Populations &amp; inversion.</strong> Monomer⇌dimer⇌trimer
+equilibrium with van ’t Hoff K(T); inversion by non-negative least
+squares over species basis spectra (linear, given size) inside a
+nonlinear fit over size/spread, with profile-likelihood identifiability
+checks; a global multi-temperature fit ties a whole T-series to one
+sample with shared thermodynamics.</li>
+</ul>
+<h2 id="what-one-spectrum-can-and-cannot-determine">6. What one spectrum
+can — and cannot — determine</h2>
+<p>A methodical identifiability study (synthetic recovery tests plus
+validation on five CTAC monomer samples with paired TEM) established
+limits that shape everything downstream, consistent with the sizing
+literature [19,20]:</p>
+<ul>
+<li><strong>Robust:</strong> the aggregated (non-monomer) gold fraction.
+With size pinned, it is a stable linear readout; on clean monomer
+samples the pipeline correctly returns zero (negative control
+passed).</li>
+<li><strong>Weak:</strong> mean size from normalized band shape below
+~35 nm (a 23 nm sample fits equally well at 8 nm); the Haiss
+A<sub>spr</sub>/A<sub>450</sub> ratio [19] separates 8 from 30 nm but
+saturates over 29–42 nm. Size must come from TEM, absolute extinction,
+or a temperature series — not band shape alone. This is exactly why
+stage one (automated TEM) is the right partner instrument.</li>
+<li><strong>Not identifiable:</strong> dimer vs trimer vs tetramer
+(collinear red tails — only the total aggregated fraction is quotable);
+blind bimodality (a two-size mixture is spectrally indistinguishable
+from one broad population); and speciation at ~8 nm (profile bounds
+explode).</li>
+<li><strong>Conditional:</strong> at ~13 nm the monomer/dimer separation
+depends on the assumed interparticle gap (identifiable at 1 nm contact,
+degenerate at ≳2–3 nm) — gap priors from ligand length matter.</li>
+</ul>
+<h2 id="line-width-is-chemistry-per-route-damping-calibration">7. Line
+width is chemistry: per-route damping calibration</h2>
+<p>The single largest systematic in all fits was the monomer line width.
+We model the effective Drude damping as γ_eff = <em>s</em>·γ_bulk +
+<em>A</em>·ħv<sub>F</sub>/R — <em>s</em> scales the tabulated
+(evaporated-film) bulk ε₂, absorbing crystallinity differences;
+<em>A</em> is the surface/interface term [13,14]. One (s, A) pair is
+fitted per synthesis route, jointly across that route’s verified-clean
+monomer sizes (the 1/R law carries the size dependence):</p>
+<table>
+<colgroup>
+<col style="width: 13%" />
+<col style="width: 32%" />
+<col style="width: 24%" />
+<col style="width: 30%" />
+</colgroup>
+<thead>
+<tr>
+<th>route</th>
+<th>calibration set</th>
+<th style="text-align: center;">(s, A_surf)</th>
+<th style="text-align: center;">mean shape RMS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CTAC (7.8–42 nm)</td>
+<td>5 samples, per-particle TEM</td>
+<td style="text-align: center;">(0.05, 0.6)</td>
+<td style="text-align: center;">4.6% → 2.5%</td>
+</tr>
+<tr>
+<td>seeded-growth citrate/H₂O₂ (11–39 nm)</td>
+<td>4 clean samples</td>
+<td style="text-align: center;">(1.75, 1.0)</td>
+<td style="text-align: center;">7.7% → 3.0%</td>
+</tr>
+</tbody>
+</table>
+<p>The two routes bracket textbook gold from <strong>opposite
+sides</strong>: CTAC particles are less damped than Johnson-Christy’s
+evaporated films (single-crystal-like; J&amp;C ε₂ effectively 15–35% too
+high for them), while seeded-growth H₂O₂ overgrowth is substantially
+<em>more</em> damped (defect-rich / multiply twinned), with an interface
+term at the top of the literature range [14]. A frozen calibration
+transferred across routes makes fits <em>worse</em> — the pair is a
+route property, not a universal constant. Two practical consequences:
+the plasmon width can serve as a fast crystallinity/interface probe; and
+any speciation fit must use its route’s calibration or it will convert
+line-width error into fictitious aggregation (§8).</p>
+<figure>
+<img
+src="/Users/eskoh/Documents/Projects/aunp-speciation/outputs/fig20_calibrate_seeded.png"
+style="width:100.0%"
+alt="Seeded-growth route calibration on the four verified-clean monomers (per-particle TEM histograms pinned; jc −2.7 nm offset). Measured spectra (black) vs the uncalibrated model, the (wrong-route) CTAC calibration, and the seeded-growth calibration (red). Right panels: RMS landscape over (s, A) — a diagonal valley (the constrained combination is the total damping) with an interior joint optimum at (1.75, 1.0)." />
+<figcaption aria-hidden="true">Seeded-growth route calibration on the
+four verified-clean monomers (per-particle TEM histograms pinned; jc
+−2.7 nm offset). Measured spectra (black) vs the uncalibrated model, the
+(wrong-route) CTAC calibration, and the seeded-growth calibration (red).
+Right panels: RMS landscape over (s, A) — a diagonal valley (the
+constrained combination is the total damping) with an interior joint
+optimum at (1.75, 1.0).</figcaption>
+</figure>
+<h2
+id="stage-three-tem-pinned-speciation-of-the-seeded-growth-series">8.
+Stage three — TEM-pinned speciation of the seeded-growth series</h2>
+<p>With sizes pinned by stage one and the route-calibrated monomer,
+fitting each spectrum as a non-negative monomer + dimer + trimer +
+tetramer mixture is a clean linear problem. The first-cut fit
+(uncalibrated line width) had assigned 13% “aggregation” to the
+physically-pure 12 nm control — the tell of an under-damped monomer
+model padding width with fake aggregate. After calibration:</p>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 34%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+</colgroup>
+<thead>
+<tr>
+<th>sample</th>
+<th style="text-align: center;">first-cut agg</th>
+<th style="text-align: center;">calibrated CDA</th>
+<th style="text-align: center;"><strong>calibrated exact
+T-matrix</strong> (gap range)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>oct GNP12 (11.6 nm, pure control)</td>
+<td style="text-align: center;">13%</td>
+<td style="text-align: center;"><strong>0%</strong></td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>oct GNP20 (22.8 nm)</td>
+<td style="text-align: center;">41%</td>
+<td style="text-align: center;">45%</td>
+<td style="text-align: center;"><strong>31%</strong> (31–38%)</td>
+</tr>
+<tr>
+<td>oct GNP40 (42.5 nm)</td>
+<td style="text-align: center;">40%</td>
+<td style="text-align: center;">38%</td>
+<td style="text-align: center;"><strong>46%</strong> (41–46%)</td>
+</tr>
+<tr>
+<td>oct GNP60 (63.3 nm)</td>
+<td style="text-align: center;">68%</td>
+<td style="text-align: center;">67%</td>
+<td style="text-align: center;"><strong>81%</strong> (75–81%)</td>
+</tr>
+<tr>
+<td>nov series (11/23/39 nm, clean)</td>
+<td style="text-align: center;">6/0/7%</td>
+<td style="text-align: center;">0/0/7%</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>nov GNP55 (54.7 nm, flagged)</td>
+<td style="text-align: center;">100%</td>
+<td style="text-align: center;">100%</td>
+<td style="text-align: center;">100%, structured misfit</td>
+</tr>
+</tbody>
+</table>
+<p>The diagnostic splits exactly as hoped: the <strong>pure-monomer
+control collapses to zero</strong> (so the calibration is right), while
+<strong>GNP20 does not</strong> — its residual is red-asymmetric, which
+damping cannot and should not absorb. The Oct-series aggregation is
+real, and GNP20 carries roughly a third of its gold in small clusters,
+robust across optics backends (CDA vs exact) and the full
+interparticle-gap grid. Nothing was calibrated away: the clean Nov
+samples stay clean with <em>improved</em> residuals.</p>
+<figure>
+<img
+src="/Users/eskoh/Documents/Projects/aunp-speciation/outputs/fig21_speciation_seeded.png"
+style="width:100.0%"
+alt="Speciation with TEM-pinned size, before (dotted) and after (red) the route damping calibration. The pure 12 nm control (top left) drops from 13% to 0% aggregated; GNP20’s misfit persists and is specifically red-sided — real coupling, not line width." />
+<figcaption aria-hidden="true">Speciation with TEM-pinned size, before
+(dotted) and after (red) the route damping calibration. The pure 12 nm
+control (top left) drops from 13% to 0% aggregated; GNP20’s misfit
+persists and is specifically red-sided — real coupling, not line
+width.</figcaption>
+</figure>
+<p>Three honest caveats. (i) The exact-optics fractions are
+<strong>gap-conditional ranges</strong>, quoted as such. (ii) The
+intuition “CDA under-couples, so its fractions are upper bounds” proved
+<strong>wrong</strong> at large sizes — exact chain modes concentrate
+red intensity in shaped bands rather than uniformly boosting the tail,
+and the exact fractions for GNP40/60 came out <em>above</em> CDA’s; we
+therefore quote the CDA↔︎exact spread as the backend systematic. (iii)
+The dimer/trimer/tetramer split within the aggregate is <strong>not
+identifiable</strong> (collinear red tails; the fitter parks weight at
+corners of the degenerate family) — only the total aggregated fraction
+is reported. GNP55 remains honestly unfittable (its smooth 580 nm
+plateau defeats any single-gap small-cluster basis): that sample is in a
+larger-floc regime, matching the experimenter’s own “redo” flag.</p>
+<figure>
+<img
+src="/Users/eskoh/Documents/Projects/aunp-speciation/outputs/fig22_speciation_exact.png"
+style="width:100.0%"
+alt="CDA vs exact T-matrix fits of the aggregated samples, both with calibrated damping. The exact basis halves the GNP20 residual; GNP60’s fitted chain modes show a ~620 nm bump the smooth data lack — the signature of a single-motif basis, motivating the ensemble-averaged (Monte-Carlo geometry) basis planned next." />
+<figcaption aria-hidden="true">CDA vs exact T-matrix fits of the
+aggregated samples, both with calibrated damping. The exact basis halves
+the GNP20 residual; GNP60’s fitted chain modes show a ~620 nm bump the
+smooth data lack — the signature of a single-motif basis, motivating the
+ensemble-averaged (Monte-Carlo geometry) basis planned
+next.</figcaption>
+</figure>
+<h2
+id="the-temperature-series-no-thermal-speciation-and-what-remains">9.
+The temperature series: no thermal speciation — and what remains</h2>
+<p>The original motivation was a temperature-dependent “isosbestic
+point” in a 13 nm citrate/TEG sol, read as evidence of a two-state
+monomer⇌dimer equilibrium. Careful data handling reversed both
+readings:</p>
+<ul>
+<li><strong>Normalization pitfall (methodological result worth
+publishing on its own).</strong> Heating/cooling branches at matched
+temperature differ by a wavelength-flat +5.6% — the cell lost ~5.6% of
+its water to evaporation over the run, overwhelming the −2.4%
+thermal-expansion correction [22] and masquerading as a growing flat
+pedestal. We built a branch-ratio diagnostic that decomposes any
+dual-branch series into concentration drift vs real spectral change, and
+an evaporation-aware normalization calibrated from the data themselves
+(one parameter; reproduces a hand-computed concentration table to
+≤0.65%). Per-temperature water blanks are subtracted before any
+normalization.</li>
+<li><strong>No robust thermal speciation.</strong> With gold ε(T)
+[15,16], water n(T) [23], and surface damping in the basis, the fitted
+ΔH₂ is consistent with zero on both branches and the aggregated fraction
+is nearly T-flat (~0.15–0.21, opposite weak trends on heating vs
+cooling). What temperature actually moves is the gold and solvent
+dielectrics — bulk gold measurably does this at exactly the magnitude
+used [16] — plus the pedestal below.</li>
+<li><strong>The crossing drifts.</strong> The difference-spectra
+crossing walks 544→568 nm over 30→75 °C (cooling ~flat at 546–554 nm). A
+fixed-geometry two-state system produces a <em>stationary</em> crossing
+(our model: drift &lt;1 nm even with full ε(T)); a drifting one
+indicates evolving cluster geometry — precisely the behavior Cardellini
+et al. recently established, with λ_iso tracking interparticle spacing
+[21]. The historical “575 nm isosbestic” was an artifact of the
+deprecated normalization.</li>
+<li><strong>The pedestal is real but its origin is not decided by
+fitting.</strong> A near-flat scattering floor (~15% of peak) survives
+blank subtraction and every exclusion we could construct: its exponent
+is decisively not Rayleigh (n ≈ 0–0.9, not 4 — small-aggregate
+scattering ruled out), it is not a permittivity artifact, not stray
+light drift (blanks are T-flat), not thermal-optical cell effects, and
+not surface nanobubbles (wrong wetting, size, and T-dependence). It
+grows reversibly by ~10–16% over 15→75 °C. Both µm-scale flocs and a
+static stray-light floor fit the shape; <strong>DLS across the ramp or a
+filtration control is the decisive experiment</strong> — we recommend it
+as the next lab action.</li>
+</ul>
+<figure>
+<img
+src="/Users/eskoh/Documents/Projects/aunp-speciation/outputs/fig14_isosbestic_drift.png"
+style="width:100.0%"
+alt="Data-level difference spectra (blank-subtracted, evaporation normalization): the crossing near 545–570 nm drifts with temperature on heating — incompatible with a fixed two-state equilibrium, consistent with evolving cluster geometry [21]." />
+<figcaption aria-hidden="true">Data-level difference spectra
+(blank-subtracted, evaporation normalization): the crossing near 545–570
+nm drifts with temperature on heating — incompatible with a fixed
+two-state equilibrium, consistent with evolving cluster geometry
+[21].</figcaption>
+</figure>
+<h2 id="status-and-next-steps">10. Status and next steps</h2>
+<p><strong>Working now:</strong> dm3 input with exact calibration;
+two-tier segmentation validated against hand measurement on the lab’s
+own images; mandatory QC overlays with one-click human review;
+per-particle output tables; a validated three-layer optical model (CDA +
+exact T-matrix, cached for fitting); route-calibrated damping for two
+chemistries; TEM-pinned quantitative speciation with stated
+identifiability limits; dual-branch normalization diagnostics; global
+multi-temperature fitting. The two repositories
+(<code>tem-particle-metrics</code>, <code>aunp-speciation</code>) share
+a clean data contract: the per-particle CSV table.</p>
+<p><strong>Next, in order of leverage:</strong></p>
+<ol type="1">
+<li><strong>Ensemble (Monte-Carlo geometry) cluster basis.</strong>
+Replace single-motif, single-gap cluster columns with averages over
+sampled configurations (N, motif, gap distribution) computed with the
+exact T-matrix. This addresses the two visible artifacts of the current
+basis (GNP60’s spurious chain-mode bump; GNP55’s unfittable plateau) and
+makes the non-identifiability of the N-split explicit.</li>
+<li><strong>Calibrate out the ~+5% tier-2 size offset</strong>
+(mask-boundary effect), so absolute (un-normalized) extinction can be
+compared, not just peak shape; then use absolute extinction plus the
+A<sub>spr</sub>/A<sub>450</sub> ratio [19] to break the remaining
+damping-size-polydispersity degeneracy.</li>
+<li><strong>Lab: DLS ramp / filtration control</strong> on the
+temperature-series sample to settle the pedestal’s origin (flocs vs
+instrument floor).</li>
+<li><strong>Adoption &amp; packaging:</strong> the batch segmenter plus
+lightweight reviewer on a shared lab machine; per-route damping
+calibration as a standard step (one clean monomer series per chemistry);
+the branch-ratio drift diagnostic on every dual-branch dataset.</li>
+</ol>
+<hr />
+<h2 id="acknowledgments">Acknowledgments</h2>
+<p>Data and research courtesy of the <strong>Dragnea lab</strong>
+(Indiana University). The TEM micrographs, hand-picked size
+measurements, and UV-Vis spectra of the seeded-growth Oct/Nov 2024
+series (§3–§4, §8) were provided by <strong>Irina Tsvetkova</strong>.
+The 2011 temperature-series experiment (§9) — the sample, the UV-Vis
+heating/cooling series, and its TEM characterization — was designed and
+performed by the author.</p>
+<h2 id="references">References</h2>
+<ol type="1">
+<li>N. Otsu, “A threshold selection method from gray-level histograms,”
+<em>IEEE Trans. Syst. Man Cybern.</em> <strong>9</strong>(1), 62–66
+(1979).</li>
+<li>S. Beucher, F. Meyer, “The morphological approach to segmentation:
+the watershed transformation,” in <em>Mathematical Morphology in Image
+Processing</em>, 433–481 (1993).</li>
+<li>S. van der Walt <em>et al.</em>, “scikit-image: image processing in
+Python,” <em>PeerJ</em> <strong>2</strong>, e453 (2014).</li>
+<li>A. Kirillov <em>et al.</em>, “Segment Anything,” <em>Proc. IEEE/CVF
+ICCV</em>, 4015–4026 (2023); arXiv:2304.02643.</li>
+<li>X. Zhao <em>et al.</em>, “Fast Segment Anything,” arXiv:2306.12156
+(2023).</li>
+<li>“NP-SAM: Implementing the Segment Anything Model for Easy
+Nanoparticle Segmentation in Electron Microscopy Images,”
+<em>ChemRxiv</em> (2023), doi:10.26434/chemrxiv-2023-k73qz; Python
+package <code>npsam</code>.</li>
+<li>F. de la Peña <em>et al.</em>, HyperSpy / RosettaSciIO —
+multi-dimensional data analysis and microscopy file I/O (dm3/dm4),
+https://hyperspy.org.</li>
+<li>C. F. Bohren, D. R. Huffman, <em>Absorption and Scattering of Light
+by Small Particles</em>, Wiley (1983).</li>
+<li>P. B. Johnson, R. W. Christy, “Optical constants of the noble
+metals,” <em>Phys. Rev. B</em> <strong>6</strong>, 4370–4379
+(1972).</li>
+<li>P. G. Etchegoin, E. C. Le Ru, M. Meyer, “An analytic model for the
+optical properties of gold,” <em>J. Chem. Phys.</em>
+<strong>125</strong>, 164705 (2006).</li>
+<li>D. I. Yakubovsky, A. V. Arsenin, Y. V. Stebunov, D. Y. Fedyanin, V.
+S. Volkov, “Optical constants and structural properties of thin gold
+films,” <em>Opt. Express</em> <strong>25</strong>(21), 25574–25587
+(2017).</li>
+<li>R. L. Olmon <em>et al.</em>, “Optical dielectric function of gold,”
+<em>Phys. Rev. B</em> <strong>86</strong>, 235147 (2012).</li>
+<li>U. Kreibig, M. Vollmer, <em>Optical Properties of Metal
+Clusters</em>, Springer (1995).</li>
+<li>S. Berciaud, L. Cognet, P. Tamarat, B. Lounis, “Observation of
+intrinsic size effects in the optical response of individual gold
+nanoparticles,” <em>Nano Lett.</em> <strong>5</strong>(3), 515–518
+(2005).</li>
+<li>T. Holstein, “Optical and infrared volume absorptivity of metals,”
+<em>Phys. Rev.</em> <strong>96</strong>, 535 (1954).</li>
+<li>H. Reddy, U. Guler, A. V. Kildishev, A. Boltasseva, V. M. Shalaev,
+“Temperature-dependent optical properties of gold thin films,” <em>Opt.
+Mater. Express</em> <strong>6</strong>(9), 2776–2802 (2016).</li>
+<li>D. Beutel, I. Fernandez-Corbaton, C. Rockstuhl, “treams — a
+T-matrix-based scattering code for nanophotonics,” <em>Comput. Phys.
+Commun.</em> <strong>297</strong>, 109076 (2024).</li>
+<li>D. W. Mackowski, M. I. Mishchenko, “A multiple sphere T-matrix
+Fortran code for use on parallel computer clusters,” <em>J. Quant.
+Spectrosc. Radiat. Transfer</em> <strong>112</strong>, 2182–2192
+(2011).</li>
+<li>W. Haiss, N. T. K. Thanh, J. Aveyard, D. G. Fernig, “Determination
+of size and concentration of gold nanoparticles from UV-Vis spectra,”
+<em>Anal. Chem.</em> <strong>79</strong>(11), 4215–4221 (2007).</li>
+<li>N. G. Khlebtsov, “Determination of size and concentration of gold
+nanoparticles from extinction spectra,” <em>Anal. Chem.</em>
+<strong>80</strong>(17), 6620–6625 (2008).</li>
+<li>J. Cardellini <em>et al.</em>, “Nanoplasmonic isosbestics uncover
+mesoscale assembly of gold nanoparticles on soft templates,” <em>J. Am.
+Chem. Soc.</em> (2025), doi:10.1021/jacs.5c05189.</li>
+<li>G. S. Kell, “Density, thermal expansivity, and compressibility of
+liquid water from 0° to 150 °C,” <em>J. Chem. Eng. Data</em>
+<strong>20</strong>, 97–105 (1975).</li>
+<li><em>CRC Handbook of Chemistry and Physics</em>, refractive index of
+water vs temperature (589 nm table).</li>
+<li>R. M. Pope, E. S. Fry, “Absorption spectrum (380–700 nm) of pure
+water,” <em>Appl. Opt.</em> <strong>36</strong>, 8710–8723 (1997); G. M.
+Hale, M. R. Querry, “Optical constants of water in the 200-nm to 200-µm
+wavelength region,” <em>Appl. Opt.</em> <strong>12</strong>, 555–563
+(1973).</li>
+<li>A. Amjad, I. Tsvetkova, L. G. Lowry, D. G. Morgan, R. Zandi, P. van
+der Schoot, B. Dragnea, “An assembly-line mechanism for in-vitro
+encapsulation of fragmented cargo in virus-like particles,”
+arXiv:2509.12409 (2025).</li>
+<li>P. van der Schoot, R. Zandi, A. Amjad, I. Tsvetkova, B. Dragnea,
+“Encapsulation of fragmented cargo by virus coat proteins,” <em>J. Chem.
+Phys.</em> <strong>164</strong>, 044906 (2026).</li>
+</ol>
+</body>
+</html>

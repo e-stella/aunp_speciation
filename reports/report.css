@@ -1,0 +1,27 @@
+@page { size: letter; margin: 1.8cm 2cm; }
+html { font-size: 11pt; }
+body {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.45; color: #1a1a1a; max-width: 100%;
+}
+h1 { font-size: 1.7em; border-bottom: 3px solid #d1495b; padding-bottom: 6px; }
+h1.title { border: none; margin-bottom: 0.1em; }
+p.author, p.date { color: #555; margin: 0.1em 0; font-size: 0.95em; }
+h2 { font-size: 1.25em; color: #b03a4b; margin-top: 1.4em;
+     border-bottom: 1px solid #ddd; padding-bottom: 3px; }
+h3 { font-size: 1.05em; color: #333; margin-top: 1em; }
+table {
+  border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 0.9em;
+}
+th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+th { background: #f2e6e9; }
+tr:nth-child(even) td { background: #fafafa; }
+figure { text-align: center; margin: 1.2em 0; page-break-inside: avoid; }
+img { max-width: 100%; height: auto; }
+figcaption {
+  font-size: 0.82em; color: #444; text-align: left;
+  margin-top: 6px; line-height: 1.35;
+}
+code { background: #f3f3f3; padding: 0 3px; border-radius: 3px; font-size: 0.9em; }
+h2 { page-break-after: avoid; }
+ol, ul { margin-top: 0.3em; }
