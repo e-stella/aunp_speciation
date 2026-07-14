@@ -1,5 +1,37 @@
 # AuNP Speciation — UV-Vis broadening from monomer/dimer/trimer equilibria
 
+> **Part of _Speciate_ — Built with Claude: Life Sciences (Builder Track).**
+> An automated pipeline that turns a TEM micrograph of gold nanoparticles into
+> mean size, size distribution, and **aggregation state**, then predicts the
+> UV-Vis spectrum with **zero fitted parameters** — replacing a half-day of manual
+> counting. This repo is the **optics + inversion** half; stage-one automated TEM
+> sizing lives in
+> **[tem-particle-metrics](https://github.com/e-stella/tem-particle-metrics)**.
+>
+> 📄 **[Read the mid-project progress report (PDF)](reports/progress_260713.pdf)** —
+> full writeup: motivation, validation, and findings.
+
+### 1 · Foundation-model segmentation handles aggregates
+![Foundation-model vs classical segmentation](docs/images/segmentation.png)
+*Classical thresholding merges touching particles into oversized blobs (left); an
+NP-SAM / Segment-Anything model separates them correctly (right). Automated sizes
+match hand-counting to within **±6%** across all eight samples, from up to 6× more
+particles.*
+
+### 2 · Zero-parameter UV-Vis prediction from TEM size alone
+![Predicted vs measured spectra](docs/images/prediction.png)
+*Predicted (red) vs measured (black), normalized to peak. Well-dispersed samples
+match within a few nm with **nothing fitted**; where the prediction breaks (right,
+55 nm), that 46 nm gap **is** the aggregation signal.*
+
+### 3 · Aggregation, quantified
+![Aggregated gold fraction by exact T-matrix](docs/images/speciation.png)
+*Exact multipole T-matrix fit (red) vs fast CDA (dotted): the aggregated gold
+fraction per sample — 0% for the pure control, ~⅓ to ⅘ for the aggregated
+batches. Only the total fraction is identifiable, so size comes from TEM.*
+
+---
+
 Prototype model for the hypothesis (Dragnea group, Indiana University) that the
 anomalously broad, red-tailed UV-Vis of 12 nm gold colloids is caused by
 reversible cluster formation (monomer ⇌ dimer ⇌ trimer …), not size
